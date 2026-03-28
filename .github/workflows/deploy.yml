@@ -11,9 +11,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy via Railway CLI
+      - name: Deploy via Railway API
         run: |
-          curl -fsSL https://railway.app/install.sh | sh
-          railway up
+          PROJECT_ID=$(curl -s "https://backboard.railway.app/api/v2/users/me" \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" | jq -r '.teamProjects[0].id')
+
+          echo "Project ID: $PROJECT_ID"
+
+          curl -s "https://backboard.railway.app/api/v2/projects/$PROJECT_ID/deployments" \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"serviceName":"stellar-drift","repo":"https://github.com/Clawdius2/stellar-drift"}' \
+            | jq '.id, .status'
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
