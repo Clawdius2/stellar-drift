@@ -12,13 +12,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Railway CLI
-        run: |
-          curl -fsSL https://railway.app/install.sh | sh
+        run: curl -fsSL https://railway.app/install.sh | sh
         env:
-          RAILWAY_TOKEN: ${${ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
       - name: Deploy via Railway CLI
-        run: |
-          railway up --service stellar-drift
+        run: railway up --service stellar-drift
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
