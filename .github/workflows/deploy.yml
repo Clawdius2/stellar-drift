@@ -11,10 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy via Railway API
+      - name: Deploy via Railway CLI
         run: |
           curl -fsSL https://railway.app/install.sh | sh
-          railway login --token "$RAILWAY_TOKEN"
-          railway up --service stellar-drift
+          railway up
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
