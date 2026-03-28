@@ -333,7 +333,12 @@ class PlayerState(db.Model):
 
     @property
     def missions(self):
-        return json.loads(self.missions_json or "[]")
+        val = self.missions_json
+        if val is None:
+            return []
+        if isinstance(val, list):
+            return val
+        return json.loads(val)
 
     @missions.setter
     def missions(self, value):
