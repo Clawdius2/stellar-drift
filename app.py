@@ -1059,6 +1059,16 @@ def api_rocket_launch():
 # Create tables on startup (works with gunicorn/WSGI — runs after models are defined)
 with app.app_context():
     db.create_all()
+    # Migrate existing player_state rows to add new columns
+    db.session.execute(db.text("""
+        ALTER TABLE player_state
+        ADD COLUMN IF NOT EXISTS missions_json TEXT DEFAULT '[]',
+        ADD COLUMN IF NOT EXISTS missions_reset_at FLOAT DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS total_taps INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS total_rocket_launches INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS lifetime_ore_earned FLOAT DEFAULT 0
+    """))
+    db.session.commit()
 
 if __name__ == "__main__":
     with app.app_context():
