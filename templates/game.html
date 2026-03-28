@@ -520,7 +520,7 @@ function renderBuildings() {
   grid.innerHTML = items.map(([id, b]) => {
     const owned = b.count > 0;
     const affordable = b.can_afford;
-    const locked = !owned && b.requires && !G.research.includes(b.requires);
+    const locked = !owned && b.requires && !G.research[b.requires];
     const tierClass = `tier-${b.tier || 1}`;
     const cardClass = locked ? 'locked' : (affordable ? 'affordable' : (owned ? 'owned' : ''));
     return `
@@ -567,7 +567,7 @@ function renderResearch() {
     html += tiers[tier].map(([id, r]) => {
       const completed = r.completed;
       const canBuy = r.can_buy;
-      const locked = !completed && r.requires && !G.research.includes(r.requires);
+      const locked = !completed && r.requires && !G.research[r.requires];
       const tierClass = `tier-${r.tier || 1}`;
       const cardClass = completed ? 'owned' : (locked ? 'locked' : (canBuy ? 'affordable' : ''));
       const effectDesc = r.effect.ore_mult ? `+${((r.effect.ore_mult-1)*100).toFixed(0)}% ore` :
