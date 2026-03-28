@@ -24,8 +24,12 @@ app.secret_key = os.environ.get("SECRET_KEY", "stellar-drift-dev-key-2024")
 
 # Database
 DATABASE_URL = os.environ.get("DATABASE_URL")
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+if DATABASE_URL:
+    # Support both postgres:// (older) and postgresql:// formats
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 if DATABASE_URL:
     app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
