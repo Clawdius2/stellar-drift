@@ -1,0 +1,24 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: |
+          curl -fsSL https://railway.app/install.sh | sh
+        env:
+          RAILWAY_TOKEN: ${${ secrets.RAILWAY_TOKEN }}
+
+      - name: Deploy via Railway CLI
+        run: |
+          railway up --service stellar-drift
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
