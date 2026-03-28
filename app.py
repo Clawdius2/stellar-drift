@@ -294,6 +294,15 @@ class PlayerState(db.Model):
     prestige_count = db.Column(db.Integer, default=0)
     prestige_upgrades_json = db.Column(db.Text, default="{}")  # {"upgrade_id": level}
 
+    # Daily missions
+    missions_json = db.Column(db.Text, default="[]")  # [{"id": "...", "progress": 0, "claimed": False}]
+    missions_reset_at = db.Column(db.Float, default=0)
+    total_taps = db.Column(db.Integer, default=0)
+
+    # Rocket launch
+    total_rocket_launches = db.Column(db.Integer, default=0)
+    lifetime_ore_earned = db.Column(db.Float, default=0)  # tracks total ore ever earned
+
     # Timestamps
     last_save_timestamp = db.Column(db.Float, default=lambda: time.time())
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -323,6 +332,14 @@ class PlayerState(db.Model):
         self.milestones_json = json.dumps(value)
 
     @property
+    def missions(self):
+        return json.loads(self.missions_json or "[]")
+
+    @missions.setter
+    def missions(self, value):
+        self.missions_json = json.dumps(value)
+
+    @property
     def prestige_upgrades(self):
         return json.loads(self.prestige_upgrades_json or "{}")
 
@@ -341,6 +358,7 @@ class PlayerState(db.Model):
         self.set_resource(name, current + amount)
         if name == "ore":
             self.total_ore_earned += amount
+            self.lifetime_ore_earned += amount
         elif name == "gas":
             self.total_gas_earned += amount
         elif name == "crystals":
@@ -667,6 +685,8 @@ def get_game_state(state, include_offline_gains=True):
         "rps": rps,
         "multiplier": state.get_production_multiplier(),
         "offline_rate": state.get_offline_rate(),
+        "missions": _get_missions_state(state),
+        "rocket": _get_rocket_state(state),
     }
 
 
@@ -681,6 +701,97 @@ def format_resources(state):
         }
     return out
 
+
+# =============================================================================
+# DAILY MISSIONS
+# =============================================================================
+
+MISSION_TEMPLATES = [
+    {"id": "tap_100", "name": "Tap 100 Times", "type": "tap", "target": 100, "reward": 5},
+    {"id": "tap_500", "name": "Tap 500 Times", "type": "tap", "target": 500, "reward": 25},
+    {"id": "ore_1k", "name": "Mine 1,000 Ore", "type": "ore", "target": 1000, "reward": 10},
+    {"id": "ore_10k", "name": "Mine 10,000 Ore", "type": "ore", "target": 10000, "reward": 50},
+    {"id": "buy_building", "name": "Purchase a Building", "type": "building", "target": 1, "reward": 15},
+    {"id": "research_1", "name": "Complete a Research", "type": "research", "target": 1, "reward": 20},
+]
+
+SECONDS_PER_DAY = 86400
+
+def _reset_missions_if_needed(state):
+    """Reset daily missions if it's a new day UTC."""
+    now = time.time()
+    midnight_utc = int(now / SECONDS_PER_DAY) * SECONDS_PER_DAY
+    if state.missions_reset_at < midnight_utc:
+        state.missions = [{"id": m["id"], "progress": 0, "claimed": False} for m in MISSION_TEMPLATES]
+        state.missions_reset_at = midnight_utc
+        state.total_taps = 0
+
+def _get_missions_state(state):
+    _reset_missions_if_needed(state)
+    missions = json.loads(state.missions_json or "[]")
+    result = []
+    template_map = {m["id"]: m for m in MISSION_TEMPLATES}
+    for m in missions:
+        tpl = template_map.get(m["id"], {})
+        result.append({
+            "id": m["id"],
+            "name": tpl.get("name", m["id"]),
+            "type": tpl.get("type", "ore"),
+            "target": tpl.get("target", 1),
+            "progress": m.get("progress", 0),
+            "reward": tpl.get("reward", 1),
+            "claimed": m.get("claimed", False),
+        })
+    return {
+        "missions": result,
+        "reset_at": int(state.missions_reset_at) + SECONDS_PER_DAY,
+    }
+
+def _update_mission_progress(state, mission_type, amount=1):
+    _reset_missions_if_needed(state)
+    missions = json.loads(state.missions_json or "[]")
+    updated = False
+    for m in missions:
+        tpl = next((x for x in MISSION_TEMPLATES if x["id"] == m["id"]), None)
+        if tpl and tpl["type"] == mission_type and not m.get("claimed", False):
+            m["progress"] = m.get("progress", 0) + amount
+            updated = True
+    if updated:
+        state.missions = json.dumps(missions)
+
+# =============================================================================
+# ROCKET LAUNCH
+# =============================================================================
+
+ROCKET_LIFETIME_THRESHOLD = 1_000_000  # lifetime ore needed to launch
+
+def _get_rocket_state(state):
+    pct = min(100, (state.lifetime_ore_earned / ROCKET_LIFETIME_THRESHOLD) * 100)
+    dark_matter_reward = max(1, int(state.lifetime_ore_earned / 100_000))
+    return {
+        "pct": pct,
+        "launched": False,
+        "dark_matter_reward": dark_matter_reward,
+    }
+
+def _do_rocket_launch(state):
+    dark_matter_earned = max(1, int(state.lifetime_ore_earned / 100_000))
+    # Reset resources but keep dark matter
+    state.ore = 0
+    state.gas = 0
+    state.crystals = 0
+    state.buildings = {"mining_laser": 1}
+    state.research = []
+    state.milestones = {}
+    state.prestige_count = 0
+    state.prestige_upgrades = {}
+    state.total_ore_earned = 0
+    state.total_gas_earned = 0
+    state.total_crystals_earned = 0
+    state.lifetime_ore_earned = 0
+    state.total_rocket_launches += 1
+    state.dark_matter += dark_matter_earned
+    return dark_matter_earned
 
 # =============================================================================
 # WEB ROUTES
@@ -771,6 +882,8 @@ def api_tap():
     amount = data.get("amount")
 
     earned = tap_resource(state, resource, amount)
+    state.total_taps += 1
+    _update_mission_progress(state, "tap", 1)
     db.session.commit()
 
     return jsonify({
@@ -788,6 +901,8 @@ def api_buy_building():
     bid = data.get("building_id")
 
     success, msg = buy_building(state, bid)
+    if success:
+        _update_mission_progress(state, "building", 1)
     db.session.commit()
 
     return jsonify({
@@ -805,6 +920,8 @@ def api_buy_research():
     rid = data.get("research_id")
 
     success, msg = process_research(state, rid)
+    if success:
+        _update_mission_progress(state, "research", 1)
     db.session.commit()
 
     return jsonify({
@@ -867,6 +984,10 @@ def api_tick():
             if rate > 0:
                 state.add_resource(resource, rate * elapsed)
 
+        # Update ore mission progress
+        if state.ore > 0:
+            _update_mission_progress(state, "ore", state.ore * elapsed)
+
         state.last_save_timestamp = now
 
     # Check milestones
@@ -877,6 +998,57 @@ def api_tick():
         "game_state": get_game_state(state, include_offline_gains=False),
         "new_milestones": [{"label": m["label"], "reward": m["reward"]} for m in new_milestones],
         "elapsed": elapsed,
+    })
+
+
+@app.route("/api/game/claim-mission", methods=["POST"])
+@login_required
+def api_claim_mission():
+    state = current_user.state
+    data = request.get_json() or {}
+    idx = data.get("mission_index")
+
+    _reset_missions_if_needed(state)
+    missions = json.loads(state.missions_json or "[]")
+    template_map = {m["id"]: m for m in MISSION_TEMPLATES}
+
+    if idx is None or idx >= len(missions):
+        return jsonify({"success": False, "message": "Invalid mission"})
+
+    m = missions[idx]
+    tpl = template_map.get(m["id"], {})
+    if m.get("claimed", False) or m.get("progress", 0) < tpl.get("target", 1):
+        return jsonify({"success": False, "message": "Mission not complete"})
+
+    m["claimed"] = True
+    state.missions = json.dumps(missions)
+
+    dark_matter_reward = tpl.get("reward", 1)
+    state.dark_matter += dark_matter_reward
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "dark_matter_earned": dark_matter_reward,
+        "game_state": get_game_state(state, include_offline_gains=False),
+    })
+
+
+@app.route("/api/game/rocket-launch", methods=["POST"])
+@login_required
+def api_rocket_launch():
+    state = current_user.state
+
+    if state.lifetime_ore_earned < ROCKET_LIFETIME_THRESHOLD:
+        return jsonify({"success": False, "message": "Not ready to launch. Mine more ore!"})
+
+    dark_matter_earned = _do_rocket_launch(state)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "dark_matter_earned": dark_matter_earned,
+        "game_state": get_game_state(state),
     })
 
 

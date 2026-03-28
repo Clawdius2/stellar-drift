@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Stellar Drift — Mining</title>
+  <title>Stellar Drift — Mine the Galaxy</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -23,6 +23,7 @@
       --text-dim: #5c6bc0;
       --border: #1a2350;
       --success: #00e676;
+      --rocket: #ff9500;
     }
     body {
       background: var(--bg);
@@ -31,6 +32,12 @@
       min-height: 100vh;
       overflow-x: hidden;
       user-select: none;
+    }
+    body.shake { animation: screenShake 0.15s ease-out; }
+    @keyframes screenShake {
+      0%,100% { transform: translateX(0); }
+      25% { transform: translateX(-3px) translateY(1px); }
+      75% { transform: translateX(3px) translateY(-1px); }
     }
     h1, h2, h3, h4 { font-family: 'Orbitron', sans-serif; letter-spacing: 0.5px; }
     button { cursor: pointer; font-family: 'Exo 2', sans-serif; }
@@ -54,6 +61,40 @@
     .top-brand { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 0.9rem; color: var(--accent); }
     .top-save { font-size: 0.7rem; color: var(--text-dim); }
     .top-save.saving { color: var(--success); }
+
+    /* Rocket launch bar */
+    .rocket-bar {
+      margin: 0.5rem 0.75rem;
+      background: var(--bg2);
+      border: 1px solid var(--rocket);
+      border-radius: 10px;
+      padding: 0.6rem 1rem;
+      display: flex; align-items: center; gap: 0.75rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .rocket-bar:hover { background: var(--bg3); }
+    .rocket-bar.launched { border-color: var(--success); }
+    .rocket-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .rocket-info { flex: 1; }
+    .rocket-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.2rem; }
+    .rocket-name { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--rocket); }
+    .rocket-bar.launched .rocket-name { color: var(--success); }
+    .rocket-progress-bar {
+      width: 100%; height: 6px;
+      background: var(--bg4);
+      border-radius: 3px;
+      margin-top: 0.4rem;
+      overflow: hidden;
+    }
+    .rocket-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--rocket), #ffcc00);
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+    .rocket-pct { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 700; color: var(--rocket); flex-shrink: 0; }
+    .rocket-bar.launched .rocket-pct { color: var(--success); }
 
     /* Resources */
     .resources-bar {
@@ -92,7 +133,7 @@
       transition: transform 0.05s;
       display: flex; align-items: center; justify-content: center;
     }
-    .asteroid:active { transform: scale(0.96); }
+    .asteroid:active { transform: scale(0.94); }
     .asteroid-inner {
       width: 60%; height: 60%;
       background: radial-gradient(ellipse, #5a4008 0%, #3d2f05 100%);
@@ -105,6 +146,21 @@
     }
     @keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
 
+    /* Tap particles */
+    .tap-particle {
+      position: absolute;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--ore);
+      pointer-events: none;
+      z-index: 50;
+      animation: particleBurst 0.6s ease-out forwards;
+    }
+    @keyframes particleBurst {
+      0% { opacity: 1; transform: translate(0, 0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+    }
+
     /* Floating numbers */
     .float-number {
       position: absolute;
@@ -114,10 +170,29 @@
       pointer-events: none;
       animation: floatUp 0.8s ease-out forwards;
       z-index: 100;
+      text-shadow: 0 0 8px rgba(244,164,96,0.8);
     }
     @keyframes floatUp {
       0% { opacity: 1; transform: translateY(0) scale(1); }
       100% { opacity: 0; transform: translateY(-60px) scale(0.8); }
+    }
+
+    /* Combo burst */
+    .combo-burst {
+      position: absolute;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 1.5rem;
+      color: var(--success);
+      pointer-events: none;
+      animation: comboPop 0.8s ease-out forwards;
+      z-index: 101;
+      text-shadow: 0 0 12px rgba(0,230,118,0.8);
+    }
+    @keyframes comboPop {
+      0% { opacity: 0; transform: scale(0.5) translateY(0); }
+      20% { opacity: 1; transform: scale(1.2) translateY(-10px); }
+      100% { opacity: 0; transform: scale(0.9) translateY(-80px); }
     }
 
     /* Section panels */
@@ -141,7 +216,7 @@
     .panel-body { display: none; padding: 0.75rem; }
     .panel.open .panel-body { display: block; }
 
-    /* Building/RESEARCH cards */
+    /* Building cards */
     .item-grid { display: flex; flex-direction: column; gap: 0.5rem; }
     .item-card {
       background: var(--bg3);
@@ -156,6 +231,12 @@
     .item-card.affordable { border-color: var(--accent); }
     .item-card.owned { border-color: var(--success); opacity: 0.7; }
     .item-card.locked { opacity: 0.4; cursor: not-allowed; }
+    .item-card.just-bought { animation: cardPop 0.3s ease-out; }
+    @keyframes cardPop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.03); border-color: var(--success); }
+      100% { transform: scale(1); }
+    }
     .item-icon {
       width: 36px; height: 36px;
       border-radius: 8px;
@@ -177,6 +258,17 @@
       padding: 0.1rem 0.4rem;
       border-radius: 4px;
     }
+    .tier-badge {
+      display: inline-block;
+      background: var(--bg4);
+      color: var(--text-dim);
+      font-size: 0.55rem;
+      font-weight: 700;
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+      margin-right: 0.3rem;
+      vertical-align: middle;
+    }
 
     /* Prestige */
     .prestige-section { padding: 1rem; text-align: center; }
@@ -196,7 +288,47 @@
     .prestige-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
     .prestige-info { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem; }
 
-    /* Offline gains toast */
+    /* Daily missions */
+    .missions-panel { padding: 0.75rem; }
+    .missions-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .missions-header h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); }
+    .missions-reset { font-size: 0.65rem; color: var(--text-dim); }
+    .mission-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      display: flex; align-items: center; gap: 0.75rem;
+      cursor: pointer;
+      transition: border-color 0.2s, opacity 0.2s;
+    }
+    .mission-card:hover { border-color: var(--accent); }
+    .mission-card.completed { opacity: 0.5; cursor: default; border-color: var(--success); }
+    .mission-card.claimable { border-color: var(--success); animation: claimPulse 1s infinite; }
+    @keyframes claimPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(0,230,118,0.4); }
+      50% { box-shadow: 0 0 0 6px rgba(0,230,118,0); }
+    }
+    .mission-icon { font-size: 1.3rem; flex-shrink: 0; width: 32px; text-align: center; }
+    .mission-info { flex: 1; }
+    .mission-name { font-size: 0.82rem; font-weight: 600; margin-bottom: 0.2rem; }
+    .mission-progress { font-size: 0.7rem; color: var(--text-dim); }
+    .mission-progress-bar {
+      width: 100%; height: 4px;
+      background: var(--bg4);
+      border-radius: 2px;
+      margin-top: 0.3rem;
+    }
+    .mission-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+    .mission-card.claimable .mission-progress-fill { background: var(--success); }
+    .mission-reward { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 700; color: var(--dark); flex-shrink: 0; }
+    .mission-card.claimable .mission-reward { color: var(--success); cursor: pointer; }
+
+    /* Toast notifications */
     .toast {
       position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
       background: var(--bg4);
@@ -219,84 +351,39 @@
       to { opacity: 0; transform: translateX(-50%) translateY(-20px); }
     }
 
-    /* Milestone notification */
+    /* Milestone toast */
     .milestone-toast {
-      position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%);
+      position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
       background: linear-gradient(135deg, #1a1a2e, #16213e);
-      border: 2px solid var(--success);
+      border: 2px solid #ffd700;
       border-radius: 12px;
       padding: 1rem 1.5rem;
-      z-index: 200;
+      z-index: 201;
       text-align: center;
-      animation: milestoneIn 0.5s ease-out;
+      animation: milestoneSlide 0.4s ease-out;
+      max-width: 90%;
+      box-shadow: 0 0 30px rgba(255,215,0,0.3);
     }
-    .milestone-toast h4 { font-size: 0.8rem; color: var(--success); margin-bottom: 0.3rem; }
-    .milestone-toast p { font-size: 1rem; font-family: 'Orbitron', sans-serif; }
-    @keyframes milestoneIn {
-      0% { opacity: 0; transform: translateX(-50%) scale(0.5); }
-      60% { transform: translateX(-50%) scale(1.05); }
+    .milestone-toast h4 { font-size: 0.8rem; color: #ffd700; margin-bottom: 0.3rem; letter-spacing: 1px; }
+    .milestone-toast p { font-size: 0.9rem; font-weight: 600; }
+    @keyframes milestoneSlide {
+      0% { opacity: 0; transform: translateX(-50%) scale(0.8); }
       100% { opacity: 1; transform: translateX(-50%) scale(1); }
     }
 
-    /* Prestige upgrade grid */
-    .prestige-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem; }
-    .prestige-card {
-      background: var(--bg3);
-      border: 1px solid var(--dark);
-      border-radius: 8px;
-      padding: 0.7rem;
-      cursor: pointer;
-      text-align: center;
-      transition: background 0.15s;
-    }
-    .prestige-card:hover { background: var(--bg4); }
-    .prestige-card.cannot-afford { opacity: 0.5; cursor: not-allowed; }
-    .prestige-card h4 { font-size: 0.7rem; margin-bottom: 0.2rem; color: var(--dark); }
-    .prestige-card p { font-size: 0.65rem; color: var(--text-dim); }
-    .prestige-card .cost { font-family: 'Orbitron', sans-serif; font-size: 0.7rem; color: var(--dark); }
-
-    /* Tap info bar */
-    .tap-info {
-      display: flex; justify-content: center; gap: 2rem;
-      padding: 0.5rem;
-      font-size: 0.75rem; color: var(--text-dim);
-    }
-    .tap-info span { display: flex; align-items: center; gap: 0.3rem; }
-
-    /* Progress bar */
-    .progress-bar {
-      background: var(--bg3);
-      border-radius: 4px; height: 6px;
-      overflow: hidden; margin-top: 0.3rem;
-    }
-    .progress-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
-
-    /* Tier badges */
-    .tier-badge {
-      display: inline-block;
-      font-size: 0.6rem;
-      padding: 0.1rem 0.4rem;
-      border-radius: 4px;
-      font-weight: 700;
-    }
-    .tier-1 { background: rgba(244,164,96,0.2); color: var(--ore); }
-    .tier-2 { background: rgba(147,112,219,0.2); color: var(--gas); }
-    .tier-3 { background: rgba(139,0,0,0.2); color: #ff4444; }
-
     /* Bottom nav */
     .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
-      background: rgba(6,9,18,0.98);
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(6,9,18,0.97);
+      backdrop-filter: blur(10px);
       border-top: 1px solid var(--border);
       display: flex; justify-content: space-around;
       padding: 0.5rem 0;
-      backdrop-filter: blur(10px);
+      z-index: 50;
     }
     .nav-tab {
       background: none; border: none;
       color: var(--text-dim);
-      font-size: 0.65rem; font-family: 'Exo 2', sans-serif;
-      display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
       padding: 0.3rem 1rem;
       transition: color 0.15s;
     }
@@ -311,15 +398,15 @@
 <body>
   <div class="stars"><canvas id="starCanvas"></canvas></div>
 
-  <!-- Offline gains toast (hidden by default) -->
+  <!-- Offline gains toast -->
   <div id="offlineToast" class="toast" style="display:none;">
     <h4>🌟 Welcome Back, Commander!</h4>
     <p id="offlineGains"></p>
   </div>
 
-  <!-- Milestone toast (hidden by default) -->
+  <!-- Milestone toast -->
   <div id="milestoneToast" class="milestone-toast" style="display:none;">
-    <h4>🏆 MILESTONE REACHED!</h4>
+    <h4>🏆 MILESTONE</h4>
     <p id="milestoneLabel"></p>
   </div>
 
@@ -328,6 +415,19 @@
     <div class="top-bar">
       <div class="top-brand">⭐ STELLAR DRIFT</div>
       <div class="top-save" id="saveStatus">Saved ✓</div>
+    </div>
+
+    <!-- Rocket launch bar -->
+    <div class="rocket-bar" id="rocketBar" onclick="openRocketModal()">
+      <div class="rocket-icon">🚀</div>
+      <div class="rocket-info">
+        <div class="rocket-label">Mission</div>
+        <div class="rocket-name">Escape the Asteroid Belt</div>
+        <div class="rocket-progress-bar">
+          <div class="rocket-progress-fill" id="rocketFill" style="width: 0%"></div>
+        </div>
+      </div>
+      <div class="rocket-pct" id="rocketPct">0%</div>
     </div>
 
     <!-- Resources -->
@@ -367,7 +467,7 @@
     </div>
 
     <!-- Tap zone -->
-    <div class="tap-zone">
+    <div class="tap-zone" id="tapZone">
       <div class="asteroid-container">
         <div class="asteroid" id="asteroid">
           <div class="asteroid-inner"></div>
@@ -414,7 +514,22 @@
           <button class="prestige-btn" id="prestigeBtn" onclick="doPrestige()">⭐ GALACTIC CORE RESET</button>
           <div class="prestige-info" id="prestigeEarn"></div>
         </div>
-        <div class="prestige-grid" id="prestigeUpgrades"></div>
+        <div class="item-grid" id="prestigeUpgrades"></div>
+      </div>
+    </div>
+
+    <!-- Daily Missions panel -->
+    <div class="panel" id="missionsPanel">
+      <div class="panel-header" onclick="togglePanel('missionsPanel')">
+        <h3>📋 Daily Missions</h3>
+        <span class="panel-toggle">▼</span>
+      </div>
+      <div class="panel-body missions-panel">
+        <div class="missions-header">
+          <h3>Today's Missions</h3>
+          <div class="missions-reset" id="missionsReset"></div>
+        </div>
+        <div id="missionsList"></div>
       </div>
     </div>
   </div>
@@ -429,6 +544,10 @@
       <span class="icon">🔬</span>
       <span>Research</span>
     </button>
+    <button class="nav-tab" onclick="switchTab('missions')">
+      <span class="icon">📋</span>
+      <span>Missions</span>
+    </button>
     <button class="nav-tab" onclick="switchTab('prestige')">
       <span class="icon">♻️</span>
       <span>Prestige</span>
@@ -441,11 +560,10 @@
 // =============================================================================
 
 const API = '/api/game';
-
-// Game state from server
 let G = null;
+let tapCombo = 0;
+let lastTapTime = 0;
 
-// Format large numbers
 function fmt(n) {
   if (n < 1000) return n < 10 ? n.toFixed(1) : String(Math.floor(n));
   if (n < 1e6) return (n/1e3).toFixed(1) + 'K';
@@ -454,23 +572,19 @@ function fmt(n) {
   return (n/1e12).toFixed(1) + 'T';
 }
 
-// Toggle panel open/close
 function togglePanel(id) {
   document.getElementById(id).classList.toggle('open');
 }
 
-// Switch bottom nav tab
 function switchTab(tab) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => {
     if (t.textContent.toLowerCase().includes(tab)) t.classList.add('active');
   });
-  // Open correct panel and close others
-  ['buildingsPanel','researchPanel','prestigePanel'].forEach(id => {
+  ['buildingsPanel','researchPanel','prestigePanel','missionsPanel'].forEach(id => {
     const el = document.getElementById(id);
-    if ((tab === 'buildings' && id === 'buildingsPanel') ||
-        (tab === 'research' && id === 'researchPanel') ||
-        (tab === 'prestige' && id === 'prestigePanel')) {
+    const map = { buildings:'buildingsPanel', research:'researchPanel', prestige:'prestigePanel', missions:'missionsPanel' };
+    if (id === map[tab]) {
       el.classList.add('open');
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
@@ -479,37 +593,131 @@ function switchTab(tab) {
   });
 }
 
-// Update resource display
 function updateDisplay() {
   if (!G) return;
   const res = G.resources;
 
   document.getElementById('oreValue').textContent = fmt(res.ore.value);
   document.getElementById('oreRate').textContent = '+' + fmt(res.ore.rps) + '/sec';
-
   document.getElementById('gasValue').textContent = fmt(res.gas.value);
   document.getElementById('gasRate').textContent = '+' + fmt(res.gas.rps) + '/sec';
-
   document.getElementById('crystalsValue').textContent = fmt(res.crystals.value);
   document.getElementById('crystalsRate').textContent = '+' + fmt(res.crystals.rps) + '/sec';
-
   document.getElementById('darkValue').textContent = fmt(res.dark_matter.value);
   document.getElementById('darkRate').textContent = '+' + fmt(res.dark_matter.rps) + '/sec';
-
   document.getElementById('multDisplay').textContent = G.multiplier.toFixed(1) + 'x';
 
-  // Buildings
+  // Rocket progress
+  const rp = G.rocket;
+  document.getElementById('rocketFill').style.width = rp.pct + '%';
+  document.getElementById('rocketPct').textContent = Math.floor(rp.pct) + '%';
+  if (rp.launched) {
+    document.getElementById('rocketBar').classList.add('launched');
+    document.getElementById('rocketPct').textContent = 'LAUNCHED';
+  }
+
+  // Daily missions
+  renderMissions();
+
   renderBuildings();
   renderResearch();
   renderPrestige();
 }
 
-// Render buildings list
+// =============================================================================
+// TAP JUICE
+// =============================================================================
+
+async function tap(e) {
+  const now = Date.now();
+  if (now - lastTapTime < 300) {
+    tapCombo++;
+  } else {
+    tapCombo = 1;
+  }
+  lastTapTime = now;
+
+  const rect = document.getElementById('asteroid').getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  // Combo burst every 10 taps
+  if (tapCombo > 0 && tapCombo % 10 === 0) {
+    showComboBurst(tapCombo, rect.width / 2, rect.height / 2);
+    screenShake();
+  }
+
+  spawnParticles(rect, x, y);
+
+  try {
+    const resp = await fetch(API + '/tap', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ resource: 'ore' }),
+    });
+    const data = await resp.json();
+    showFloat(data.earned || 1, e.clientX, e.clientY);
+    G = data.game_state;
+    updateDisplay();
+  } catch(err) { console.error('Tap error:', err); }
+}
+
+function showFloat(amount, x, y) {
+  const zone = document.getElementById('tapZone');
+  const rect = zone.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'float-number';
+  el.textContent = '+' + fmt(amount);
+  el.style.left = (x - rect.left) + 'px';
+  el.style.top = (y - rect.top) + 'px';
+  el.style.color = 'var(--ore)';
+  zone.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+function showComboBurst(combo, x, y) {
+  const zone = document.getElementById('tapZone');
+  const el = document.createElement('div');
+  el.className = 'combo-burst';
+  el.textContent = combo + 'x COMBO!';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.style.transform = 'translate(-50%, -50%)';
+  zone.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+function spawnParticles(asteroidRect, localX, localY) {
+  const zone = document.getElementById('tapZone');
+  const count = 3 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'tap-particle';
+    const angle = (Math.PI * 2 * i / count) + Math.random() * 0.5;
+    const dist = 40 + Math.random() * 40;
+    p.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+    p.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+    p.style.left = localX + 'px';
+    p.style.top = localY + 'px';
+    p.style.background = Math.random() > 0.5 ? 'var(--ore)' : '#ffd700';
+    zone.appendChild(p);
+    setTimeout(() => p.remove(), 600);
+  }
+}
+
+function screenShake() {
+  document.body.classList.add('shake');
+  setTimeout(() => document.body.classList.remove('shake'), 150);
+}
+
+// =============================================================================
+// RENDER BUILDINGS
+// =============================================================================
+
 function renderBuildings() {
   const grid = document.getElementById('buildingsGrid');
   if (!G) return;
   const items = Object.entries(G.buildings);
-  // Sort: owned first, then by tier
   items.sort((a, b) => {
     const ca = G.buildings[a[0]].count > 0 ? 0 : 1;
     const cb = G.buildings[b[0]].count > 0 ? 0 : 1;
@@ -524,7 +732,7 @@ function renderBuildings() {
     const tierClass = `tier-${b.tier || 1}`;
     const cardClass = locked ? 'locked' : (affordable ? 'affordable' : (owned ? 'owned' : ''));
     return `
-      <div class="item-card ${cardClass}" onclick="${locked ? '' : `buyBuilding('${id}')`}">
+      <div class="item-card ${cardClass}" data-id="${id}" onclick="${locked ? '' : `buyBuilding('${id}')`}">
         <div class="item-icon" style="background: rgba(244,164,96,0.2);">⛏️</div>
         <div class="item-info">
           <div class="item-name">
@@ -547,12 +755,14 @@ function renderBuildings() {
   }).join('');
 }
 
-// Render research list
+// =============================================================================
+// RENDER RESEARCH
+// =============================================================================
+
 function renderResearch() {
   const grid = document.getElementById('researchGrid');
   if (!G) return;
   const items = Object.entries(G.research);
-  // Group by tier
   const tiers = {};
   items.forEach(([id, r]) => {
     const tier = r.tier || 1;
@@ -561,9 +771,8 @@ function renderResearch() {
   });
 
   let html = '';
-  [1,2,3].forEach(tier => {
-    if (!tiers[tier]) return;
-    html += `<div class="research-tier"><div class="tier-label">${'═'.repeat(10)} Tier ${tier} ${'═'.repeat(10)}</div>`;
+  Object.keys(tiers).sort().forEach(tier => {
+    html += `<div class="research-tier"><div class="tier-label">═══ Tier ${tier} ═══</div>`;
     html += tiers[tier].map(([id, r]) => {
       const completed = r.completed;
       const canBuy = r.can_buy;
@@ -571,14 +780,13 @@ function renderResearch() {
       const tierClass = `tier-${r.tier || 1}`;
       const cardClass = completed ? 'owned' : (locked ? 'locked' : (canBuy ? 'affordable' : ''));
       const effectDesc = r.effect.ore_mult ? `+${((r.effect.ore_mult-1)*100).toFixed(0)}% ore` :
-                         r.effect.unlock ? `Unlocks: ${r.effect.unlock}` :
                          r.effect.offline_mult ? `+${((r.effect.offline_mult-1)*100).toFixed(0)}% offline` : '';
       return `
         <div class="item-card ${cardClass}" onclick="${completed || locked ? '' : `buyResearch('${id}')`}">
-          <div class="item-icon" style="background: rgba(147,112,219,0.2);">🔬</div>
+          <div class="item-icon" style="background: rgba(0,212,255,0.15);">🔬</div>
           <div class="item-info">
             <div class="item-name">
-              <span class="tier-badge ${tierClass}">T${r.tier||1}</span>
+              <span class="tier-badge">T${r.tier||1}</span>
               ${r.name}
               ${completed ? '<span class="item-badge">✓</span>' : ''}
             </div>
@@ -593,15 +801,16 @@ function renderResearch() {
     }).join('');
     html += '</div>';
   });
-
   grid.innerHTML = html;
 }
 
-// Render prestige
+// =============================================================================
+// RENDER PRESTIGE
+// =============================================================================
+
 function renderPrestige() {
   if (!G) return;
   const p = G.prestige;
-
   document.getElementById('prestigeBtn').disabled = !p.can_prestige;
   document.getElementById('prestigeEarn').textContent = p.can_prestige
     ? `Would earn: ⬡ ${p.would_earn} Dark Matter`
@@ -610,77 +819,129 @@ function renderPrestige() {
   const info = document.getElementById('prestigeInfo');
   info.textContent = `Prestige count: ${p.count} | Total multiplier: ${G.multiplier.toFixed(1)}x | Offline: ${G.offline_rate.toFixed(1)}x`;
 
-  // Upgrades
   const grid = document.getElementById('prestigeUpgrades');
   grid.innerHTML = Object.entries(p.upgrades).map(([id, u]) => `
-    <div class="prestige-card ${u.can_afford ? '' : 'cannot-afford'}" onclick="buyPrestigeUpgrade('${id}')">
-      <h4>${u.name}</h4>
-      <div>Level ${u.level}</div>
-      <div style="font-size:0.65rem; color: var(--success);">${u.desc}</div>
-      <div class="cost">⬡ ${u.cost} DM</div>
+    <div class="item-card ${u.can_afford ? 'affordable' : ''}" onclick="${u.can_afford ? `buyPrestigeUpgrade('${id}')` : ''}" style="margin-top:0.5rem;">
+      <div class="item-icon" style="background: rgba(204,0,0,0.2);">⬡</div>
+      <div class="item-info">
+        <div class="item-name">${u.name}</div>
+        <div style="font-size:0.65rem; color: var(--success);">${u.desc}</div>
+      </div>
+      <div class="item-meta">
+        <div class="item-cost" style="color: var(--dark);">⬡ ${u.cost} DM</div>
+      </div>
     </div>
   `).join('');
 }
 
-// Show milestone toast
-function showMilestone(label) {
-  const toast = document.getElementById('milestoneToast');
-  document.getElementById('milestoneLabel').textContent = label;
-  toast.style.display = 'block';
-  setTimeout(() => {
-    toast.style.display = 'none';
-  }, 3000);
+// =============================================================================
+// DAILY MISSIONS
+// =============================================================================
+
+function renderMissions() {
+  if (!G || !G.missions) return;
+  const ms = G.missions;
+  const list = document.getElementById('missionsList');
+
+  // Show reset time
+  const reset = new Date(ms.reset_at * 1000);
+  const hrs = reset.getHours().toString().padStart(2,'0');
+  const mins = reset.getMinutes().toString().padStart(2,'0');
+  document.getElementById('missionsReset').textContent = `Resets ${hrs}:${mins} UTC`;
+
+  const icons = { 'ore': '⛏️', 'tap': '👆', 'research': '🔬', 'building': '🏗️', 'login': '🚀' };
+  list.innerHTML = ms.missions.map((m, i) => {
+    const pct = Math.min(100, Math.floor((m.progress / m.target) * 100));
+    const claimable = m.progress >= m.target && !m.claimed;
+    const cls = m.claimed ? 'completed' : (claimable ? 'claimable' : '');
+    return `
+      <div class="mission-card ${cls}" onclick="${claimable ? `claimMission(${i})` : ''}">
+        <div class="mission-icon">${icons[m.type] || '⭐'}</div>
+        <div class="mission-info">
+          <div class="mission-name">${m.name}</div>
+          <div class="mission-progress">${fmt(m.progress)} / ${fmt(m.target)}</div>
+          <div class="mission-progress-bar">
+            <div class="mission-progress-fill" style="width:${pct}%"></div>
+          </div>
+        </div>
+        <div class="mission-reward">${claimable ? 'CLAIM ⬡' : `⬡ ${m.reward}`}</div>
+      </div>
+    `;
+  }).join('');
 }
 
-// Floating +N on tap
-function showFloat(amount, x, y) {
-  const el = document.createElement('div');
-  el.className = 'float-number';
-  el.textContent = '+' + fmt(amount);
-  el.style.left = (x + (Math.random() * 40 - 20)) + 'px';
-  el.style.top = (y - 20) + 'px';
-  el.style.color = 'var(--ore)';
-  document.querySelector('.tap-zone').appendChild(el);
-  setTimeout(() => el.remove(), 800);
+async function claimMission(idx) {
+  try {
+    const resp = await fetch(API + '/claim-mission', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ mission_index: idx }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      G = data.game_state;
+      updateDisplay();
+      showToast('⭐ Mission Complete!', `+${data.dark_matter_earned} Dark Matter`);
+    }
+  } catch(e) { console.error('Claim mission error:', e); }
+}
+
+// =============================================================================
+// ROCKET LAUNCH
+// =============================================================================
+
+function openRocketModal() {
+  if (!G || !G.rocket) return;
+  const r = G.rocket;
+  if (r.launched) {
+    alert('🚀 You already launched! Restarting your journey with +' + r.dark_matter_earned + ' Dark Matter bonus.');
+    return;
+  }
+  if (r.pct < 100) {
+    showToast('🚀 Mission In Progress', Math.floor(r.pct) + '% complete — keep mining!');
+    return;
+  }
+  if (confirm('🚀 LAUNCH THE ROCKET?\n\nThis will reset all resources and buildings, but you\'ll earn a permanent Dark Matter bonus!\n\nEarn: ⬡ ' + r.dark_matter_reward + ' Dark Matter')) {
+    doRocketLaunch();
+  }
+}
+
+async function doRocketLaunch() {
+  try {
+    const resp = await fetch(API + '/rocket-launch', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({}),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      G = data.game_state;
+      updateDisplay();
+      showToast('🚀 LAUNCH SUCCESSFUL!', '+' + data.dark_matter_earned + ' Dark Matter earned!');
+    }
+  } catch(e) { console.error('Rocket launch error:', e); }
 }
 
 // =============================================================================
 // API CALLS
 // =============================================================================
 
-// Load initial state
 async function loadState() {
   try {
     const resp = await fetch(API + '/state');
     G = await resp.json();
+    // Show offline gains
+    if (G.offline_gains && G.offline_gains.total > 0) {
+      const lines = Object.entries(G.offline_gains).filter(([k,v]) => k !== 'total' && v > 0)
+        .map(([k,v]) => `${fmt(v)} ${k}`);
+      document.getElementById('offlineGains').textContent = lines.join(' | ') || 'Nothing earned while away';
+      document.getElementById('offlineToast').style.display = 'block';
+      setTimeout(() => document.getElementById('offlineToast').style.display = 'none', 5000);
+    }
     updateDisplay();
   } catch(e) { console.error('Load state error:', e); }
 }
 
-// Tap asteroid
-async function tap(e) {
-  // Get click position for float
-  const rect = document.getElementById('asteroid').getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-
-  try {
-    const resp = await fetch(API + '/tap', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ resource: 'ore' }),
-    });
-    const data = await resp.json();
-    G.resources.ore.value = data.ore;
-    G.resources.ore.value += data.earned; // already added server-side
-    document.getElementById('oreValue').textContent = fmt(data.ore + data.earned);
-    showFloat(data.earned || 1, x, y);
-    // Refresh full state for updated costs
-    loadState();
-  } catch(e) { console.error('Tap error:', e); }
-}
-
-// Buy building
 async function buyBuilding(id) {
   try {
     const resp = await fetch(API + '/buy/building', {
@@ -692,13 +953,15 @@ async function buyBuilding(id) {
     if (data.success) {
       G = data.game_state;
       updateDisplay();
+      // Card pop animation
+      const card = document.querySelector(`.item-card[data-id="${id}"]`);
+      if (card) { card.classList.add('just-bought'); setTimeout(() => card.classList.remove('just-bought'), 300); }
     } else {
       alert(data.message);
     }
   } catch(e) { console.error('Buy building error:', e); }
 }
 
-// Buy research
 async function buyResearch(id) {
   try {
     const resp = await fetch(API + '/buy/research', {
@@ -716,7 +979,6 @@ async function buyResearch(id) {
   } catch(e) { console.error('Buy research error:', e); }
 }
 
-// Prestige
 async function doPrestige() {
   if (!confirm('Reset all progress for a permanent Dark Matter bonus?')) return;
   try {
@@ -729,12 +991,11 @@ async function doPrestige() {
     if (data.success) {
       G = data.game_state;
       updateDisplay();
-      alert(`⬡ +${data.soul_earned} Dark Matter earned!`);
+      showToast('⬡ PRESTIGE!', '+' + data.soul_earned + ' Dark Matter earned!');
     }
   } catch(e) { console.error('Prestige error:', e); }
 }
 
-// Buy prestige upgrade
 async function buyPrestigeUpgrade(id) {
   try {
     const resp = await fetch(API + '/buy/prestige-upgrade', {
@@ -749,10 +1010,9 @@ async function buyPrestigeUpgrade(id) {
     } else {
       alert(data.message);
     }
-  } catch(e) { console.error('Prestige upgrade error:', e); }
+  } catch(e) { console.error('Buy prestige upgrade error:', e); }
 }
 
-// Periodic tick (every 5 seconds)
 async function tick() {
   try {
     const resp = await fetch(API + '/tick', {
@@ -769,8 +1029,27 @@ async function tick() {
   } catch(e) { console.error('Tick error:', e); }
 }
 
-// Save status indicator
-let saveTimeout;
+// =============================================================================
+// TOASTS
+// =============================================================================
+
+function showToast(title, msg) {
+  const el = document.getElementById('offlineToast');
+  el.querySelector('h4').textContent = title;
+  el.querySelector('p').textContent = msg;
+  el.style.display = 'block';
+  el.style.borderColor = 'var(--accent)';
+  el.querySelector('h4').style.color = 'var(--accent)';
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function showMilestone(label) {
+  const toast = document.getElementById('milestoneToast');
+  document.getElementById('milestoneLabel').textContent = label;
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 4000);
+}
+
 function showSaving() {
   const el = document.getElementById('saveStatus');
   el.textContent = 'Saving...';
@@ -782,17 +1061,23 @@ function showSaving() {
   }, 1000);
 }
 
-// Auto-save via tick
+let saveTimeout;
+
+// =============================================================================
+// INIT
+// =============================================================================
+
+document.getElementById('asteroid').addEventListener('click', tap);
+loadState();
+
 setInterval(() => {
   tick();
   showSaving();
 }, 5000);
 
-// Game tick faster for smoother feel
 setInterval(() => {
   if (G) {
-    // Client-side prediction: add estimated gains
-    const elapsed = 1; // 1 second between ticks
+    const elapsed = 1;
     const rps = G.rps;
     Object.keys(rps).forEach(r => {
       if (G.resources[r]) {
@@ -803,18 +1088,11 @@ setInterval(() => {
   }
 }, 1000);
 
-// Init
-document.getElementById('asteroid').addEventListener('click', tap);
-loadState();
-
-// Stars background
+// Stars
 const canvas = document.getElementById('starCanvas');
 const ctx = canvas.getContext('2d');
 let stars = [];
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
+function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 function initStars() {
   resizeCanvas();
   stars = Array.from({length: 250}, () => ({
@@ -837,9 +1115,9 @@ function drawStars() {
   });
   requestAnimationFrame(drawStars);
 }
-window.addEventListener('resize', resizeCanvas);
 initStars();
 drawStars();
+window.addEventListener('resize', initStars);
 </script>
 </body>
 </html>
