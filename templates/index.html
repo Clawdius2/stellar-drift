@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Stellar Drift — Mine the Galaxy{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="hero">
+    <h1>Stellar Drift</h1>
+    <p>Mine asteroids. Build an empire. Explore the galaxy. The most satisfying idle game in the universe.</p>
+    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+      <a href="/register" class="btn">Start Mining Free</a>
+      <a href="/login" class="btn btn-ghost">Continue Journey</a>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon" style="background: rgba(244,164,96,0.2);">⛏️</div>
+        <div>
+          <h3>Tap &amp; Mine</h3>
+          <p>Mine ore from asteroids with satisfying taps</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background: rgba(147,112,219,0.2);">🔬</div>
+        <div>
+          <h3>Research Tech</h3>
+          <p>Unlock new buildings and abilities</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background: rgba(0,206,209,0.2);">🚀</div>
+        <div>
+          <h3>Build Fleet</h3>
+          <p>Automate production across the galaxy</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background: rgba(139,0,0,0.2);">♻️</div>
+        <div>
+          <h3>Prestige</h3>
+          <p>Reset for permanent dark matter bonuses</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

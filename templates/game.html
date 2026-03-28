@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stellar Drift — Mining</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --bg: #060912;
+      --bg2: #0a0f20;
+      --bg3: #0f1629;
+      --bg4: #151d35;
+      --accent: #00d4ff;
+      --accent2: #ff6b35;
+      --ore: #f4a460;
+      --gas: #9370db;
+      --crystals: #00ced1;
+      --dark: #cc0000;
+      --text: #e8eaf6;
+      --text-dim: #5c6bc0;
+      --border: #1a2350;
+      --success: #00e676;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Exo 2', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      user-select: none;
+    }
+    h1, h2, h3, h4 { font-family: 'Orbitron', sans-serif; letter-spacing: 0.5px; }
+    button { cursor: pointer; font-family: 'Exo 2', sans-serif; }
+
+    /* Stars background */
+    .stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+    .stars canvas { width: 100%; height: 100%; }
+
+    /* Layout */
+    .game-wrapper { position: relative; z-index: 1; max-width: 600px; margin: 0 auto; padding-bottom: 100px; }
+
+    /* Top bar */
+    .top-bar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(6,9,18,0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.5rem 1rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .top-brand { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 0.9rem; color: var(--accent); }
+    .top-save { font-size: 0.7rem; color: var(--text-dim); }
+    .top-save.saving { color: var(--success); }
+
+    /* Resources */
+    .resources-bar {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 0.5rem; padding: 0.75rem;
+    }
+    .resource-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.6rem 0.8rem;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .resource-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .resource-info { flex: 1; min-width: 0; }
+    .resource-name { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+    .resource-value { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 600; }
+    .resource-rate { font-size: 0.65rem; color: var(--text-dim); }
+
+    /* Tap zone */
+    .tap-zone {
+      position: relative;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 1.5rem 1rem;
+    }
+    .asteroid-container {
+      position: relative; width: 160px; height: 160px;
+      margin-bottom: 1rem;
+    }
+    .asteroid {
+      width: 100%; height: 100%;
+      background: radial-gradient(ellipse at 40% 40%, #8b6914 0%, #6b4f0a 40%, #3d2f05 70%, #2a1f03 100%);
+      border-radius: 50% 45% 55% 48% / 52% 48% 55% 45%;
+      box-shadow: 0 0 40px rgba(244,164,96,0.3), inset -10px -10px 30px rgba(0,0,0,0.5);
+      cursor: pointer;
+      transition: transform 0.05s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .asteroid:active { transform: scale(0.96); }
+    .asteroid-inner {
+      width: 60%; height: 60%;
+      background: radial-gradient(ellipse, #5a4008 0%, #3d2f05 100%);
+      border-radius: 50%;
+      box-shadow: inset 5px 5px 15px rgba(0,0,0,0.6);
+    }
+    .tap-hint {
+      color: var(--text-dim); font-size: 0.75rem;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+    /* Floating numbers */
+    .float-number {
+      position: absolute;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 1.2rem;
+      pointer-events: none;
+      animation: floatUp 0.8s ease-out forwards;
+      z-index: 100;
+    }
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-60px) scale(0.8); }
+    }
+
+    /* Section panels */
+    .panel {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin: 0.5rem 0.75rem;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 0.75rem 1rem;
+      display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer;
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-header h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); }
+    .panel-toggle { font-size: 0.8rem; color: var(--text-dim); transition: transform 0.2s; }
+    .panel.open .panel-toggle { transform: rotate(180deg); }
+    .panel-body { display: none; padding: 0.75rem; }
+    .panel.open .panel-body { display: block; }
+
+    /* Building/RESEARCH cards */
+    .item-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+    .item-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.7rem 0.9rem;
+      display: flex; align-items: center; gap: 0.75rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .item-card:hover { background: var(--bg4); }
+    .item-card.affordable { border-color: var(--accent); }
+    .item-card.owned { border-color: var(--success); opacity: 0.7; }
+    .item-card.locked { opacity: 0.4; cursor: not-allowed; }
+    .item-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; flex-shrink: 0;
+    }
+    .item-info { flex: 1; min-width: 0; }
+    .item-name { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.15rem; }
+    .item-desc { font-size: 0.7rem; color: var(--text-dim); }
+    .item-meta { text-align: right; flex-shrink: 0; }
+    .item-cost { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; }
+    .item-count { font-size: 0.65rem; color: var(--text-dim); }
+    .item-badge {
+      display: inline-block;
+      background: var(--success);
+      color: #000;
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    /* Prestige */
+    .prestige-section { padding: 1rem; text-align: center; }
+    .prestige-btn {
+      background: linear-gradient(135deg, #cc0000, #8b0000);
+      color: #fff;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      padding: 0.8rem 2rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.1s;
+    }
+    .prestige-btn:hover { transform: scale(1.02); }
+    .prestige-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .prestige-info { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem; }
+
+    /* Offline gains toast */
+    .toast {
+      position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+      background: var(--bg4);
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      padding: 0.8rem 1.2rem;
+      z-index: 200;
+      text-align: center;
+      animation: slideDown 0.3s ease-out;
+      max-width: 90%;
+    }
+    .toast h4 { font-size: 0.75rem; margin-bottom: 0.3rem; color: var(--accent); }
+    .toast p { font-size: 0.85rem; }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    .toast.hide { animation: slideUp 0.3s ease-in forwards; }
+    @keyframes slideUp {
+      to { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    }
+
+    /* Milestone notification */
+    .milestone-toast {
+      position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border: 2px solid var(--success);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      z-index: 200;
+      text-align: center;
+      animation: milestoneIn 0.5s ease-out;
+    }
+    .milestone-toast h4 { font-size: 0.8rem; color: var(--success); margin-bottom: 0.3rem; }
+    .milestone-toast p { font-size: 1rem; font-family: 'Orbitron', sans-serif; }
+    @keyframes milestoneIn {
+      0% { opacity: 0; transform: translateX(-50%) scale(0.5); }
+      60% { transform: translateX(-50%) scale(1.05); }
+      100% { opacity: 1; transform: translateX(-50%) scale(1); }
+    }
+
+    /* Prestige upgrade grid */
+    .prestige-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem; }
+    .prestige-card {
+      background: var(--bg3);
+      border: 1px solid var(--dark);
+      border-radius: 8px;
+      padding: 0.7rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+    }
+    .prestige-card:hover { background: var(--bg4); }
+    .prestige-card.cannot-afford { opacity: 0.5; cursor: not-allowed; }
+    .prestige-card h4 { font-size: 0.7rem; margin-bottom: 0.2rem; color: var(--dark); }
+    .prestige-card p { font-size: 0.65rem; color: var(--text-dim); }
+    .prestige-card .cost { font-family: 'Orbitron', sans-serif; font-size: 0.7rem; color: var(--dark); }
+
+    /* Tap info bar */
+    .tap-info {
+      display: flex; justify-content: center; gap: 2rem;
+      padding: 0.5rem;
+      font-size: 0.75rem; color: var(--text-dim);
+    }
+    .tap-info span { display: flex; align-items: center; gap: 0.3rem; }
+
+    /* Progress bar */
+    .progress-bar {
+      background: var(--bg3);
+      border-radius: 4px; height: 6px;
+      overflow: hidden; margin-top: 0.3rem;
+    }
+    .progress-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
+
+    /* Tier badges */
+    .tier-badge {
+      display: inline-block;
+      font-size: 0.6rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+    .tier-1 { background: rgba(244,164,96,0.2); color: var(--ore); }
+    .tier-2 { background: rgba(147,112,219,0.2); color: var(--gas); }
+    .tier-3 { background: rgba(139,0,0,0.2); color: #ff4444; }
+
+    /* Bottom nav */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(6,9,18,0.98);
+      border-top: 1px solid var(--border);
+      display: flex; justify-content: space-around;
+      padding: 0.5rem 0;
+      backdrop-filter: blur(10px);
+    }
+    .nav-tab {
+      background: none; border: none;
+      color: var(--text-dim);
+      font-size: 0.65rem; font-family: 'Exo 2', sans-serif;
+      display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+      padding: 0.3rem 1rem;
+      transition: color 0.15s;
+    }
+    .nav-tab.active { color: var(--accent); }
+    .nav-tab .icon { font-size: 1.2rem; }
+
+    /* Research tier */
+    .research-tier { margin-bottom: 0.75rem; }
+    .tier-label { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 1px; }
+  </style>
+</head>
+<body>
+  <div class="stars"><canvas id="starCanvas"></canvas></div>
+
+  <!-- Offline gains toast (hidden by default) -->
+  <div id="offlineToast" class="toast" style="display:none;">
+    <h4>🌟 Welcome Back, Commander!</h4>
+    <p id="offlineGains"></p>
+  </div>
+
+  <!-- Milestone toast (hidden by default) -->
+  <div id="milestoneToast" class="milestone-toast" style="display:none;">
+    <h4>🏆 MILESTONE REACHED!</h4>
+    <p id="milestoneLabel"></p>
+  </div>
+
+  <div class="game-wrapper">
+    <!-- Top bar -->
+    <div class="top-bar">
+      <div class="top-brand">⭐ STELLAR DRIFT</div>
+      <div class="top-save" id="saveStatus">Saved ✓</div>
+    </div>
+
+    <!-- Resources -->
+    <div class="resources-bar">
+      <div class="resource-card">
+        <div class="resource-dot" style="background: var(--ore);"></div>
+        <div class="resource-info">
+          <div class="resource-name">Ore</div>
+          <div class="resource-value" id="oreValue">0</div>
+          <div class="resource-rate" id="oreRate">+0/sec</div>
+        </div>
+      </div>
+      <div class="resource-card">
+        <div class="resource-dot" style="background: var(--gas);"></div>
+        <div class="resource-info">
+          <div class="resource-name">Gas</div>
+          <div class="resource-value" id="gasValue">0</div>
+          <div class="resource-rate" id="gasRate">+0/sec</div>
+        </div>
+      </div>
+      <div class="resource-card">
+        <div class="resource-dot" style="background: var(--crystals);"></div>
+        <div class="resource-info">
+          <div class="resource-name">Crystals</div>
+          <div class="resource-value" id="crystalsValue">0</div>
+          <div class="resource-rate" id="crystalsRate">+0/sec</div>
+        </div>
+      </div>
+      <div class="resource-card">
+        <div class="resource-dot" style="background: var(--dark);"></div>
+        <div class="resource-info">
+          <div class="resource-name">Dark Matter</div>
+          <div class="resource-value" id="darkValue">0</div>
+          <div class="resource-rate" id="darkRate">+0/sec</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tap zone -->
+    <div class="tap-zone">
+      <div class="asteroid-container">
+        <div class="asteroid" id="asteroid">
+          <div class="asteroid-inner"></div>
+        </div>
+      </div>
+      <div class="tap-info">
+        <span>⛏️ <span id="tapPower">+1 ore/tap</span></span>
+        <span>🚀 <span id="multDisplay">1.0x</span> multiplier</span>
+      </div>
+      <div class="tap-hint">Tap the asteroid to mine ore!</div>
+    </div>
+
+    <!-- Buildings panel -->
+    <div class="panel open" id="buildingsPanel">
+      <div class="panel-header" onclick="togglePanel('buildingsPanel')">
+        <h3>🏗️ Buildings</h3>
+        <span class="panel-toggle">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="item-grid" id="buildingsGrid"></div>
+      </div>
+    </div>
+
+    <!-- Research panel -->
+    <div class="panel" id="researchPanel">
+      <div class="panel-header" onclick="togglePanel('researchPanel')">
+        <h3>🔬 Research</h3>
+        <span class="panel-toggle">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="item-grid" id="researchGrid"></div>
+      </div>
+    </div>
+
+    <!-- Prestige panel -->
+    <div class="panel" id="prestigePanel">
+      <div class="panel-header" onclick="togglePanel('prestigePanel')">
+        <h3>♻️ Prestige</h3>
+        <span class="panel-toggle">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="prestige-section">
+          <div id="prestigeInfo" style="margin-bottom: 0.75rem; font-size: 0.8rem; color: var(--text-dim);"></div>
+          <button class="prestige-btn" id="prestigeBtn" onclick="doPrestige()">⭐ GALACTIC CORE RESET</button>
+          <div class="prestige-info" id="prestigeEarn"></div>
+        </div>
+        <div class="prestige-grid" id="prestigeUpgrades"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav">
+    <button class="nav-tab active" onclick="switchTab('buildings')">
+      <span class="icon">🏗️</span>
+      <span>Buildings</span>
+    </button>
+    <button class="nav-tab" onclick="switchTab('research')">
+      <span class="icon">🔬</span>
+      <span>Research</span>
+    </button>
+    <button class="nav-tab" onclick="switchTab('prestige')">
+      <span class="icon">♻️</span>
+      <span>Prestige</span>
+    </button>
+  </nav>
+
+<script>
+// =============================================================================
+// GAME CLIENT
+// =============================================================================
+
+const API = '/api/game';
+
+// Game state from server
+let G = null;
+
+// Format large numbers
+function fmt(n) {
+  if (n < 1000) return n < 10 ? n.toFixed(1) : String(Math.floor(n));
+  if (n < 1e6) return (n/1e3).toFixed(1) + 'K';
+  if (n < 1e9) return (n/1e6).toFixed(1) + 'M';
+  if (n < 1e12) return (n/1e9).toFixed(1) + 'B';
+  return (n/1e12).toFixed(1) + 'T';
+}
+
+// Toggle panel open/close
+function togglePanel(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+// Switch bottom nav tab
+function switchTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    if (t.textContent.toLowerCase().includes(tab)) t.classList.add('active');
+  });
+  // Open correct panel and close others
+  ['buildingsPanel','researchPanel','prestigePanel'].forEach(id => {
+    const el = document.getElementById(id);
+    if ((tab === 'buildings' && id === 'buildingsPanel') ||
+        (tab === 'research' && id === 'researchPanel') ||
+        (tab === 'prestige' && id === 'prestigePanel')) {
+      el.classList.add('open');
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      el.classList.remove('open');
+    }
+  });
+}
+
+// Update resource display
+function updateDisplay() {
+  if (!G) return;
+  const res = G.resources;
+
+  document.getElementById('oreValue').textContent = fmt(res.ore.value);
+  document.getElementById('oreRate').textContent = '+' + fmt(res.ore.rps) + '/sec';
+
+  document.getElementById('gasValue').textContent = fmt(res.gas.value);
+  document.getElementById('gasRate').textContent = '+' + fmt(res.gas.rps) + '/sec';
+
+  document.getElementById('crystalsValue').textContent = fmt(res.crystals.value);
+  document.getElementById('crystalsRate').textContent = '+' + fmt(res.crystals.rps) + '/sec';
+
+  document.getElementById('darkValue').textContent = fmt(res.dark_matter.value);
+  document.getElementById('darkRate').textContent = '+' + fmt(res.dark_matter.rps) + '/sec';
+
+  document.getElementById('multDisplay').textContent = G.multiplier.toFixed(1) + 'x';
+
+  // Buildings
+  renderBuildings();
+  renderResearch();
+  renderPrestige();
+}
+
+// Render buildings list
+function renderBuildings() {
+  const grid = document.getElementById('buildingsGrid');
+  if (!G) return;
+  const items = Object.entries(G.buildings);
+  // Sort: owned first, then by tier
+  items.sort((a, b) => {
+    const ca = G.buildings[a[0]].count > 0 ? 0 : 1;
+    const cb = G.buildings[b[0]].count > 0 ? 0 : 1;
+    if (ca !== cb) return ca - cb;
+    return (G.buildings[a[0]].tier || 1) - (G.buildings[b[0]].tier || 1);
+  });
+
+  grid.innerHTML = items.map(([id, b]) => {
+    const owned = b.count > 0;
+    const affordable = b.can_afford;
+    const locked = !owned && b.requires && !G.research.includes(b.requires);
+    const tierClass = `tier-${b.tier || 1}`;
+    const cardClass = locked ? 'locked' : (affordable ? 'affordable' : (owned ? 'owned' : ''));
+    return `
+      <div class="item-card ${cardClass}" onclick="${locked ? '' : `buyBuilding('${id}')`}">
+        <div class="item-icon" style="background: rgba(244,164,96,0.2);">⛏️</div>
+        <div class="item-info">
+          <div class="item-name">
+            <span class="tier-badge ${tierClass}">T${b.tier||1}</span>
+            ${b.name}
+            ${owned ? `<span class="item-badge">x${b.count}</span>` : ''}
+          </div>
+          <div class="item-desc">${locked ? '🔒 ' : ''}${b.description}</div>
+          <div style="margin-top:0.3rem; font-size:0.65rem; color: var(--text-dim);">
+            Output: +${fmt(b.base_output)} ${b.produces}/sec each
+          </div>
+        </div>
+        <div class="item-meta">
+          <div class="item-cost" style="color: ${b.cost_resource === 'ore' ? 'var(--ore)' : (b.cost_resource === 'crystals' ? 'var(--crystals)' : 'var(--dark)')};">
+            ${fmt(b.cost)} ${b.cost_resource}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Render research list
+function renderResearch() {
+  const grid = document.getElementById('researchGrid');
+  if (!G) return;
+  const items = Object.entries(G.research);
+  // Group by tier
+  const tiers = {};
+  items.forEach(([id, r]) => {
+    const tier = r.tier || 1;
+    if (!tiers[tier]) tiers[tier] = [];
+    tiers[tier].push([id, r]);
+  });
+
+  let html = '';
+  [1,2,3].forEach(tier => {
+    if (!tiers[tier]) return;
+    html += `<div class="research-tier"><div class="tier-label">${'═'.repeat(10)} Tier ${tier} ${'═'.repeat(10)}</div>`;
+    html += tiers[tier].map(([id, r]) => {
+      const completed = r.completed;
+      const canBuy = r.can_buy;
+      const locked = !completed && r.requires && !G.research.includes(r.requires);
+      const tierClass = `tier-${r.tier || 1}`;
+      const cardClass = completed ? 'owned' : (locked ? 'locked' : (canBuy ? 'affordable' : ''));
+      const effectDesc = r.effect.ore_mult ? `+${((r.effect.ore_mult-1)*100).toFixed(0)}% ore` :
+                         r.effect.unlock ? `Unlocks: ${r.effect.unlock}` :
+                         r.effect.offline_mult ? `+${((r.effect.offline_mult-1)*100).toFixed(0)}% offline` : '';
+      return `
+        <div class="item-card ${cardClass}" onclick="${completed || locked ? '' : `buyResearch('${id}')`}">
+          <div class="item-icon" style="background: rgba(147,112,219,0.2);">🔬</div>
+          <div class="item-info">
+            <div class="item-name">
+              <span class="tier-badge ${tierClass}">T${r.tier||1}</span>
+              ${r.name}
+              ${completed ? '<span class="item-badge">✓</span>' : ''}
+            </div>
+            <div class="item-desc">${locked ? '🔒 ' : ''}${r.description}</div>
+            ${effectDesc ? `<div style="margin-top:0.2rem; font-size:0.65rem; color: var(--success);">${effectDesc}</div>` : ''}
+          </div>
+          <div class="item-meta">
+            ${!completed ? `<div class="item-cost" style="color: ${r.cost_resource === 'ore' ? 'var(--ore)' : 'var(--crystals)'};">${fmt(r.cost)} ${r.cost_resource}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+    html += '</div>';
+  });
+
+  grid.innerHTML = html;
+}
+
+// Render prestige
+function renderPrestige() {
+  if (!G) return;
+  const p = G.prestige;
+
+  document.getElementById('prestigeBtn').disabled = !p.can_prestige;
+  document.getElementById('prestigeEarn').textContent = p.can_prestige
+    ? `Would earn: ⬡ ${p.would_earn} Dark Matter`
+    : p.count > 0 ? `Reach 1M ore lifetime to prestige again` : `Reach 1M ore lifetime to unlock`;
+
+  const info = document.getElementById('prestigeInfo');
+  info.textContent = `Prestige count: ${p.count} | Total multiplier: ${G.multiplier.toFixed(1)}x | Offline: ${G.offline_rate.toFixed(1)}x`;
+
+  // Upgrades
+  const grid = document.getElementById('prestigeUpgrades');
+  grid.innerHTML = Object.entries(p.upgrades).map(([id, u]) => `
+    <div class="prestige-card ${u.can_afford ? '' : 'cannot-afford'}" onclick="buyPrestigeUpgrade('${id}')">
+      <h4>${u.name}</h4>
+      <div>Level ${u.level}</div>
+      <div style="font-size:0.65rem; color: var(--success);">${u.desc}</div>
+      <div class="cost">⬡ ${u.cost} DM</div>
+    </div>
+  `).join('');
+}
+
+// Show milestone toast
+function showMilestone(label) {
+  const toast = document.getElementById('milestoneToast');
+  document.getElementById('milestoneLabel').textContent = label;
+  toast.style.display = 'block';
+  setTimeout(() => {
+    toast.style.display = 'none';
+  }, 3000);
+}
+
+// Floating +N on tap
+function showFloat(amount, x, y) {
+  const el = document.createElement('div');
+  el.className = 'float-number';
+  el.textContent = '+' + fmt(amount);
+  el.style.left = (x + (Math.random() * 40 - 20)) + 'px';
+  el.style.top = (y - 20) + 'px';
+  el.style.color = 'var(--ore)';
+  document.querySelector('.tap-zone').appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+// =============================================================================
+// API CALLS
+// =============================================================================
+
+// Load initial state
+async function loadState() {
+  try {
+    const resp = await fetch(API + '/state');
+    G = await resp.json();
+    updateDisplay();
+  } catch(e) { console.error('Load state error:', e); }
+}
+
+// Tap asteroid
+async function tap(e) {
+  // Get click position for float
+  const rect = document.getElementById('asteroid').getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  try {
+    const resp = await fetch(API + '/tap', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ resource: 'ore' }),
+    });
+    const data = await resp.json();
+    G.resources.ore.value = data.ore;
+    G.resources.ore.value += data.earned; // already added server-side
+    document.getElementById('oreValue').textContent = fmt(data.ore + data.earned);
+    showFloat(data.earned || 1, x, y);
+    // Refresh full state for updated costs
+    loadState();
+  } catch(e) { console.error('Tap error:', e); }
+}
+
+// Buy building
+async function buyBuilding(id) {
+  try {
+    const resp = await fetch(API + '/buy/building', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ building_id: id }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      G = data.game_state;
+      updateDisplay();
+    } else {
+      alert(data.message);
+    }
+  } catch(e) { console.error('Buy building error:', e); }
+}
+
+// Buy research
+async function buyResearch(id) {
+  try {
+    const resp = await fetch(API + '/buy/research', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ research_id: id }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      G = data.game_state;
+      updateDisplay();
+    } else {
+      alert(data.message);
+    }
+  } catch(e) { console.error('Buy research error:', e); }
+}
+
+// Prestige
+async function doPrestige() {
+  if (!confirm('Reset all progress for a permanent Dark Matter bonus?')) return;
+  try {
+    const resp = await fetch(API + '/prestige', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({}),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      G = data.game_state;
+      updateDisplay();
+      alert(`⬡ +${data.soul_earned} Dark Matter earned!`);
+    }
+  } catch(e) { console.error('Prestige error:', e); }
+}
+
+// Buy prestige upgrade
+async function buyPrestigeUpgrade(id) {
+  try {
+    const resp = await fetch(API + '/buy/prestige-upgrade', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ upgrade_id: id }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      G = data.game_state;
+      updateDisplay();
+    } else {
+      alert(data.message);
+    }
+  } catch(e) { console.error('Prestige upgrade error:', e); }
+}
+
+// Periodic tick (every 5 seconds)
+async function tick() {
+  try {
+    const resp = await fetch(API + '/tick', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({}),
+    });
+    const data = await resp.json();
+    if (data.new_milestones && data.new_milestones.length > 0) {
+      data.new_milestones.forEach(m => showMilestone(m.label + ' (+' + ((m.reward-1)*100).toFixed(0) + '% bonus)'));
+    }
+    G = data.game_state;
+    updateDisplay();
+  } catch(e) { console.error('Tick error:', e); }
+}
+
+// Save status indicator
+let saveTimeout;
+function showSaving() {
+  const el = document.getElementById('saveStatus');
+  el.textContent = 'Saving...';
+  el.classList.add('saving');
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    el.textContent = 'Saved ✓';
+    el.classList.remove('saving');
+  }, 1000);
+}
+
+// Auto-save via tick
+setInterval(() => {
+  tick();
+  showSaving();
+}, 5000);
+
+// Game tick faster for smoother feel
+setInterval(() => {
+  if (G) {
+    // Client-side prediction: add estimated gains
+    const elapsed = 1; // 1 second between ticks
+    const rps = G.rps;
+    Object.keys(rps).forEach(r => {
+      if (G.resources[r]) {
+        G.resources[r].value += rps[r] * elapsed;
+      }
+    });
+    updateDisplay();
+  }
+}, 1000);
+
+// Init
+document.getElementById('asteroid').addEventListener('click', tap);
+loadState();
+
+// Stars background
+const canvas = document.getElementById('starCanvas');
+const ctx = canvas.getContext('2d');
+let stars = [];
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+function initStars() {
+  resizeCanvas();
+  stars = Array.from({length: 250}, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    r: Math.random() * 1.5 + 0.3,
+    speed: Math.random() * 0.3 + 0.05,
+    opacity: Math.random() * 0.6 + 0.2,
+  }));
+}
+function drawStars() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  stars.forEach(s => {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${s.opacity})`;
+    ctx.fill();
+    s.y -= s.speed;
+    if (s.y < 0) { s.y = canvas.height; s.x = Math.random() * canvas.width; }
+  });
+  requestAnimationFrame(drawStars);
+}
+window.addEventListener('resize', resizeCanvas);
+initStars();
+drawStars();
+</script>
+</body>
+</html>
