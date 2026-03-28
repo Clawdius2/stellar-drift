@@ -38,10 +38,6 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
-# Create tables on startup (works with gunicorn/WSGI)
-with app.app_context():
-    db.create_all()
-
 # =============================================================================
 # GAME CONSTANTS
 # =============================================================================
@@ -884,8 +880,13 @@ def api_tick():
 # MAIN
 # =============================================================================
 
+# Create tables on startup (works with gunicorn/WSGI — runs after models are defined)
+with app.app_context():
+    db.create_all()
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
+
