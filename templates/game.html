@@ -252,7 +252,8 @@ function newRun() {
 }
 
 function doTap(nodeId) {
-  socket.emit("tap", { node_id: nodeId || "N1" });
+  console.log("[doTap] emitting, G.room:", G.room, "socket sid:", socket.id);
+  socket.emit("tap", { node_id: nodeId || "N1", room: G.room });
 }
 
 function placeBuilding(socketId) {
