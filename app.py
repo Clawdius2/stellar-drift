@@ -59,6 +59,7 @@ def game():
 # SOCKET.IO — GAME EVENTS
 # =============================================================================
 
+# Railway auto-deploy trigger
 @socketio.on("connect")
 def on_connect():
     sid = request.sid
