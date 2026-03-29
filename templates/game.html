@@ -472,10 +472,36 @@ function showBuildingDetail(socket) {
 function placeSelectedBuilding(socketId) {
   console.log('[placeSelectedBuilding] socketId=', socketId, 'selectedBuilding=', selectedBuilding, 'socket.connected=', socket.connected);
   if (!selectedBuilding) { console.warn('[placeSelectedBuilding] no selectedBuilding!'); return; }
-  socket.emit("place_building", {
-    socket_id: socketId,
-    building_id: selectedBuilding.id,
-  });
+
+  // Use HTTP fallback if socket appears connected but is actually broken
+  // (WebSocket upgrade fails and extension blocks polling — silently drops emits)
+  const payload = { socket_id: socketId, building_id: selectedBuilding.id };
+  const tryHttp = () => {
+    fetch('/api/place_building', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then(r => r.json()).then(data => {
+      console.log('[placeSelectedBuilding] HTTP fallback result:', data);
+      if (data.success) G = data.state;
+      updateContextPanel();
+      updateAsteroid();
+    }).catch(e => console.error('[placeSelectedBuilding] HTTP fallback failed:', e));
+  };
+
+  if (!socket.connected) {
+    // Fully disconnected — use HTTP
+    tryHttp();
+  } else {
+    // Try socket.emit normally — if it silently fails, WebSocket is broken even
+    // though connected=true. Detect by checking if we get a state_update within 1s.
+    let emitted = false;
+    const check = setTimeout(() => {
+      if (!emitted) { emitted = true; tryHttp(); }
+    }, 1000);
+    socket.emit("place_building", payload, () => { clearTimeout(check); emitted = true; });
+  }
+
   selectedBuilding = null;
   selectedSocket = null;
   setTimeout(() => {

@@ -121,6 +121,27 @@ def on_tap(data):
         "tap_result": {"node_id": node_id, "gained": gained},
     })
 
+@app.route("/api/place_building", methods=["POST"])
+def http_place_building():
+    """HTTP fallback when Socket.IO fails — e.g. due to WebSocket blocked by extensions."""
+    from flask import jsonify
+    room = session.get("room")
+    if not room or room not in rooms:
+        return jsonify({"success": False, "message": "No active room"}), 400
+
+    import json
+    data = json.loads(request.data or "{}")
+    socket_id = data.get("socket_id")
+    building_id = data.get("building_id")
+
+    state = rooms[room]
+    success, msg = place_building(state, socket_id, building_id)
+    return jsonify({
+        "success": success,
+        "message": msg,
+        "state": get_client_state(state),
+    })
+
 @socketio.on("place_building")
 def on_place_building(data):
     print(f"[place_building] data={data}, session.room={session.get('room')}")
