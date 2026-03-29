@@ -123,15 +123,19 @@ def on_tap(data):
 
 @socketio.on("place_building")
 def on_place_building(data):
+    print(f"[place_building] data={data}, session.room={session.get('room')}")
     room = session.get("room")
     if not room or room not in rooms:
+        print("[place_building] no room or room not in rooms")
         return
     state = rooms[room]
 
     socket_id = data.get("socket_id")
     building_id = data.get("building_id")
+    print(f"[place_building] socket_id={socket_id}, building_id={building_id}")
 
     success, msg = place_building(state, socket_id, building_id)
+    print(f"[place_building] success={success}, msg={msg}")
 
     emit("state_update", {
         "state": get_client_state(state),
