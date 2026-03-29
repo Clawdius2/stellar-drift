@@ -749,7 +749,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     if (closest) {
+      console.log("[TAP] tapped node:", closest.id, "at canvas", x.toFixed(0), y.toFixed(0));
       doTap(closest.id);
+    } else {
+      console.log("[TAP] miss at canvas", x.toFixed(0), y.toFixed(0), "- nearest node dist:", minDist.toFixed(0), "/ 40 needed");
     }
   });
 });
