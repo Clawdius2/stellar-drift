@@ -850,8 +850,7 @@ function updateAsteroid() {
 }
 
 function drawAsteroid() {
-  if (!G || !ctx) { console.log('[drawAsteroid] skipping: G=', !!G, 'ctx=', !!ctx); return; }
-  console.log('[drawAsteroid] drawing... canvas=', canvas.width, 'x', canvas.height);
+  if (!G || !ctx) return;
   _animTime = Date.now() / 1000; // sync all building animations
   const W = canvas.width;
   const H = canvas.height;
@@ -1807,4 +1806,3 @@ window._shownMessages = new Set();
 
 </body>
 </html>
-Sun Mar 29 16:27:47 CDT 2026
