@@ -153,6 +153,16 @@
   Tap ore nodes on the asteroid to mine
 </div>
 
+<!-- Debug panel: only shows when ?debug=1 in URL -->
+<div id="debug-panel" style="display:none; position:fixed; bottom:10px; left:10px; background:rgba(0,0,0,0.85); color:#0f0; padding:12px; border:1px solid #0f0; font-family:monospace; font-size:12px; z-index:9999; border-radius:8px; max-width:320px;">
+  <div style="font-weight:bold; margin-bottom:8px;">🔧 DEBUG PANEL</div>
+  <div id="debug-state"></div>
+  <button onclick="debugTap('N1')" style="margin:4px 2px;padding:4px 8px;background:#1a1;color:#fff;border:none;border-radius:4px;cursor:pointer;">TAP N1</button>
+  <button onclick="debugTap('N2')" style="margin:4px 2px;padding:4px 8px;background:#1a1;color:#fff;border:none;border-radius:4px;cursor:pointer;">TAP N2</button>
+  <button onclick="debugTap('N3')" style="margin:4px 2px;padding:4px 8px;background:#1a1;color:#fff;border:none;border-radius:4px;cursor:pointer;">TAP N3</button>
+  <button onclick="debugResearch()" style="margin:4px 2px;padding:4px 8px;background:#a11;color:#fff;border:none;border-radius:4px;cursor:pointer;">BUY Efficient Strikes I</button>
+</div>
+
 <!-- ============================================================
      JAVASCRIPT — SOCKET.IO CLIENT + GAME LOGIC
      ============================================================ -->
@@ -889,6 +899,45 @@ function hideOverlay() {
 }
 
 <!-- =============================================================================
+// =============================================================================
+// DEBUG FUNCTIONS
+// =============================================================================
+function debugUpdate() {
+  if (!G) return;
+  const panel = document.getElementById('debug-panel');
+  if (!panel) return;
+  const el = document.getElementById('debug-state');
+  if (!el) return;
+  el.innerHTML = `
+    Ore: ${fmt(G.resources.ore)}<br>
+    Power: ${fmt(G.resources.power)}<br>
+    Oxygen: ${fmt(G.resources.oxygen)}<br>
+    Status: ${G.status}<br>
+    Nodes: ${(G.map.nodes || []).map(n => `${n.id}[${n.unlocked}/${n.active}]`).join(', ')}
+  `;
+}
+
+function debugTap(nodeId) {
+  console.log('[DEBUG] calling doTap:', nodeId);
+  doTap(nodeId);
+  setTimeout(debugUpdate, 300);
+}
+
+function debugResearch() {
+  console.log('[DEBUG] calling doResearch: efficient_strikes_i');
+  doResearch('efficient_strikes_i');
+  setTimeout(debugUpdate, 300);
+}
+
+// Show debug panel when ?debug=1
+if (window.location.search.includes('debug=1')) {
+  const panel = document.getElementById('debug-panel');
+  if (panel) panel.style.display = 'block';
+  // Update debug state every second
+  setInterval(debugUpdate, 1000);
+  debugUpdate();
+}
+
 // DATA DEFINITIONS (injected from Python config via Jinja2)
 // =============================================================================
 const BUILDINGS_DEF = {{ buildings_json | safe }};
