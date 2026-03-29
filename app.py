@@ -101,6 +101,7 @@ def on_new_run(data):
 @socketio.on("tap")
 def on_tap(data):
     room = session.get("room")
+    print(f"[tap] room={room}, rooms={list(rooms.keys())}")
     if not room or room not in rooms:
         return
     state = rooms[room]
