@@ -202,6 +202,7 @@ socket.on("init", (data) => {
 socket.on("state_update", (data) => {
   const prevStatus = G ? G.status : null;
   const prevOxygen = G ? G.resources.oxygen : 100;
+  console.log("[state_update] received, ore now:", data.state.resources.ore, "tap_result:", data.tap_result);
 
   G = data.state;
 
