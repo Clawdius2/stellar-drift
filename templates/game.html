@@ -148,10 +148,27 @@
 <!-- Mobile: show/hide sidebar toggle -->
 <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">📋</button>
 
-<!-- Tap hint -->
+  <!-- Tap hint -->
 <div class="tap-hint-overlay" id="tap-hint">
   Tap ore nodes on the asteroid to mine
 </div>
+
+<!-- Locked socket tooltip -->
+<div id="locked-socket-tooltip" style="
+  display: none;
+  position: fixed;
+  background: rgba(15,25,45,0.95);
+  border: 1px solid var(--accent, #00d4ff);
+  color: #e8eaf6;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  z-index: 1000;
+  pointer-events: none;
+  max-width: 180px;
+  line-height: 1.4;
+  box-shadow: 0 4px 20px rgba(0,212,255,0.2);
+"></div>
 
 <!-- Debug panel: only shows when ?debug=1 in URL -->
 <div id="debug-panel" style="display:none; position:fixed; bottom:10px; left:10px; background:rgba(0,0,0,0.85); color:#0f0; padding:12px; border:1px solid #0f0; font-family:monospace; font-size:12px; z-index:9999; border-radius:8px; max-width:320px;">
@@ -531,12 +548,13 @@ function drawAsteroid() {
 
   ctx.clearRect(0, 0, W, H);
 
-  // Asteroid body
+  // Asteroid body — cold bluish-gray space rock
   const grad = ctx.createRadialGradient(cx - radius*0.3, cy - radius*0.3, 0, cx, cy, radius);
-  grad.addColorStop(0, "#8a7040");
-  grad.addColorStop(0.4, "#5a4820");
-  grad.addColorStop(0.7, "#3a2c10");
-  grad.addColorStop(1, "#1a1005");
+  grad.addColorStop(0, "#6b7280");
+  grad.addColorStop(0.3, "#4b5563");
+  grad.addColorStop(0.6, "#374151");
+  grad.addColorStop(0.85, "#1f2937");
+  grad.addColorStop(1, "#111827");
 
   ctx.beginPath();
   // Lumpy asteroid outline
@@ -562,7 +580,7 @@ function drawAsteroid() {
   ];
   craters.forEach(c => {
     const cGrad = ctx.createRadialGradient(cx + c.x*radius, cy + c.y*radius, 0, cx + c.x*radius, cy + c.y*radius, c.r*radius);
-    cGrad.addColorStop(0, "rgba(0,0,0,0.35)");
+    cGrad.addColorStop(0, "rgba(0,0,0,0.4)");
     cGrad.addColorStop(1, "rgba(0,0,0,0)");
     ctx.beginPath();
     ctx.arc(cx + c.x*radius, cy + c.y*radius, c.r*radius, 0, Math.PI*2);
@@ -642,10 +660,32 @@ function drawAsteroid() {
     const socketR = 16;
 
     if (socket.occupied) {
-      // Draw placed building icon
+      // Draw placed building icon with category ring
       const bId = socket.building_id;
+      const b = BUILDINGS_DEF[bId] || {};
+      const cat = b.category || "advanced";
+      const catColor = {
+        extraction: "#f97316",
+        sustainment: "#00d4ff",
+        industrial: "#a855f7",
+        advanced: "#00ced1",
+        escape: "#ef4444",
+        expansion: "#ffd700",
+      }[cat] || "#00d4ff";
+
+      // Outer glow ring
+      ctx.beginPath();
+      ctx.arc(sx, sy, socketR + 3, 0, Math.PI*2);
+      ctx.strokeStyle = catColor;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = catColor;
+      ctx.shadowBlur = 6;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Building icon (larger)
       const icon = BUILDING_ICONS[bId] || "🏗️";
-      ctx.font = `${Math.floor(socketR * 1.5)}px serif`;
+      ctx.font = `24px serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(icon, sx, sy);
@@ -677,13 +717,13 @@ function drawAsteroid() {
       // Locked socket
       ctx.beginPath();
       ctx.arc(sx, sy, socketR, 0, Math.PI*2);
-      ctx.fillStyle = "rgba(30,20,5,0.5)";
+      ctx.fillStyle = "rgba(15,25,45,0.6)";
       ctx.fill();
       ctx.font = "10px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = "rgba(255,255,255,0.2)";
-      ctx.fillText("🔒", sx, sy);
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.fillText("?", sx, sy);
     }
   });
 
@@ -722,6 +762,56 @@ document.addEventListener("DOMContentLoaded", () => {
   initCanvas();
 
   const wrapper = document.getElementById("asteroid-wrapper");
+  wrapper.addEventListener("mousemove", e => {
+    if (!G) return;
+    const rect = wrapper.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2, radius = Math.min(W, H) * 0.42;
+
+    const socketPositions = {
+      "upper_left":    { angle: Math.PI * 0.8, dist: 0.6 },
+      "upper_right":   { angle: Math.PI * 0.2, dist: 0.6 },
+      "mid_left":      { angle: Math.PI * 0.95, dist: 0.45 },
+      "mid_right":     { angle: Math.PI * 0.05, dist: 0.45 },
+      "lower_left":    { angle: Math.PI * 1.1, dist: 0.6 },
+      "lower_right":   { angle: Math.PI * -0.1, dist: 0.6 },
+      "far_upper_left":   { angle: Math.PI * 0.9, dist: 0.75 },
+      "far_upper_right":  { angle: Math.PI * 0.1, dist: 0.75 },
+      "far_mid_left":     { angle: Math.PI, dist: 0.3 },
+      "far_mid_right":    { angle: 0, dist: 0.3 },
+      "far_lower_left":   { angle: Math.PI * 1.15, dist: 0.75 },
+      "far_lower_right":  { angle: Math.PI * -0.15, dist: 0.75 },
+    };
+
+    let nearSocket = null;
+    const hitRadius = 22;
+    G.map.sockets.forEach(socket => {
+      if (!socket.unlocked) {
+        const pos = socketPositions[socket.position_key];
+        if (!pos) return;
+        const sx = cx + Math.cos(pos.angle) * pos.dist * radius;
+        const sy = cy + Math.sin(pos.angle) * pos.dist * radius;
+        if (Math.hypot(x - sx, y - sy) < hitRadius) {
+          nearSocket = socket;
+        }
+      }
+    });
+
+    const tip = document.getElementById("locked-socket-tooltip");
+    if (nearSocket) {
+      tip.style.display = "block";
+      tip.style.left = (e.clientX + 14) + "px";
+      tip.style.top = (e.clientY - 10) + "px";
+      tip.textContent = "🔒 Locked — Research Deep Survey to unlock +2 sockets";
+    } else {
+      tip.style.display = "none";
+    }
+  });
+
   wrapper.addEventListener("click", e => {
     if (!G || G.status !== "playing") return;
     const rect = wrapper.getBoundingClientRect();
