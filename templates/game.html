@@ -470,7 +470,8 @@ function showBuildingDetail(socket) {
 }
 
 function placeSelectedBuilding(socketId) {
-  if (!selectedBuilding) return;
+  console.log('[placeSelectedBuilding] socketId=', socketId, 'selectedBuilding=', selectedBuilding, 'socket.connected=', socket.connected);
+  if (!selectedBuilding) { console.warn('[placeSelectedBuilding] no selectedBuilding!'); return; }
   socket.emit("place_building", {
     socket_id: socketId,
     building_id: selectedBuilding.id,
@@ -660,6 +661,7 @@ function selectBuilding(id) {
   const b = BUILDINGS_DEF[id];
   if (!b) return;
   selectedBuilding = { id, cost: b.cost };
+  console.log('[selectBuilding]', id, 'selectedBuilding=', selectedBuilding, 'G.map.sockets=', G?.map?.sockets?.length);
   renderPlacementHint();
   updateAsteroid(); // show glowing sockets
   showAlert(`Tap a glowing socket to place ${b.name}`, "info");
@@ -1530,6 +1532,7 @@ function drawRocketPad(ctx, cx, cy, radius, completeCount) {
 }
 
 function selectSocket(socket) {
+  console.log('[selectSocket]', socket.id, 'occupied=', socket.occupied, 'selectedBuilding=', selectedBuilding);
   selectedSocket = { ...socket };
   if (socket.occupied && socket.building_id) {
     selectedBuilding = { id: socket.building_id, socket_id: socket.id };
