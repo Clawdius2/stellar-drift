@@ -1,4 +1,4 @@
-"""Stellar Drift v2 — Flask-SocketIO game server."""
+"""Stellar Drift v2 — Flask-SocketIO game server. v3: gunicorn+gevent"""
 import os
 import time
 import uuid
