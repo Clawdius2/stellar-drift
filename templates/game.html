@@ -126,12 +126,51 @@
     }
     .asteroid {
       width: 100%; height: 100%;
-      background: radial-gradient(ellipse at 40% 40%, #8b6914 0%, #6b4f0a 40%, #3d2f05 70%, #2a1f03 100%);
+      background: radial-gradient(ellipse at 38% 32%, #9a7840 0%, #7a5c20 25%, #4a3810 55%, #2a1e05 80%, #1a1203 100%);
       border-radius: 50% 45% 55% 48% / 52% 48% 55% 45%;
-      box-shadow: 0 0 40px rgba(244,164,96,0.3), inset -10px -10px 30px rgba(0,0,0,0.5);
       cursor: pointer;
       transition: transform 0.05s;
       display: flex; align-items: center; justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .asteroid::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        /* Surface highlights */
+        radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.07) 0%, transparent 22%),
+        radial-gradient(ellipse at 70% 75%, rgba(0,0,0,0.2) 0%, transparent 20%),
+        /* Crater rims — dark rings */
+        radial-gradient(ellipse at 22% 60%, rgba(0,0,0,0.4) 0%, transparent 18%),
+        radial-gradient(ellipse at 65% 20%, rgba(0,0,0,0.3) 0%, transparent 15%),
+        radial-gradient(ellipse at 80% 55%, rgba(0,0,0,0.35) 0%, transparent 14%),
+        radial-gradient(ellipse at 40% 85%, rgba(0,0,0,0.3) 0%, transparent 17%),
+        /* Crater floors — darker pits */
+        radial-gradient(ellipse at 55% 45%, rgba(0,0,0,0.25) 0%, transparent 12%),
+        radial-gradient(ellipse at 15% 35%, rgba(0,0,0,0.2) 0%, transparent 10%),
+        radial-gradient(ellipse at 85% 30%, rgba(0,0,0,0.2) 0%, transparent 9%),
+        /* Subtle rocky ridges */
+        radial-gradient(ellipse at 45% 15%, rgba(255,255,255,0.04) 0%, transparent 13%);
+      border-radius: inherit;
+      pointer-events: none;
+    }
+    .asteroid::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow:
+        inset -12px -8px 30px rgba(0,0,0,0.65),
+        inset 8px 6px 20px rgba(0,0,0,0.3),
+        inset -4px 14px 18px rgba(0,0,0,0.4),
+        inset 16px -6px 22px rgba(0,0,0,0.35),
+        inset -20px -12px 25px rgba(0,0,0,0.5),
+        inset 6px 16px 15px rgba(0,0,0,0.3),
+        0 0 60px rgba(244,164,96,0.15),
+        0 0 100px rgba(180,110,40,0.08);
+      pointer-events: none;
     }
     .asteroid:active { transform: scale(0.94); }
     .asteroid-inner {

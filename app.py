@@ -439,9 +439,10 @@ def calculate_offline_gains(state):
     effective_rate = sum(rps.values()) * offline_mult * (1 / (1 + elapsed / 7200))
 
     gains = {}
+    total_rate = sum(rps.values())
     for resource, rate in rps.items():
-        share = rate / sum(rps.values()) if sum(rps.values()) > 0 else 0
-        gains[resource] = effective_rate * share * elapsed * (rate / sum(rps.values()) if sum(rps.values()) > 0 else 0) if rate > 0 else 0
+        share = rate / total_rate if total_rate > 0 else 0
+        gains[resource] = effective_rate * share * elapsed if rate > 0 else 0
 
     return gains
 
@@ -895,6 +896,7 @@ def api_tap():
         "earned": earned,
         "resources": format_resources(state),
         "ore": state.ore,
+        "game_state": get_game_state(state, include_offline_gains=False),
     })
 
 
@@ -1065,15 +1067,19 @@ def api_rocket_launch():
 with app.app_context():
     db.create_all()
     # Migrate existing player_state rows to add new columns
-    db.session.execute(db.text("""
-        ALTER TABLE player_state
-        ADD COLUMN IF NOT EXISTS missions_json TEXT DEFAULT '[]',
-        ADD COLUMN IF NOT EXISTS missions_reset_at FLOAT DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS total_taps INTEGER DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS total_rocket_launches INTEGER DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS lifetime_ore_earned FLOAT DEFAULT 0
-    """))
-    db.session.commit()
+    # Use try/except because IF NOT EXISTS is not supported on all SQLite versions
+    for col_def in [
+        "missions_json TEXT DEFAULT '[]'",
+        "missions_reset_at FLOAT DEFAULT 0",
+        "total_taps INTEGER DEFAULT 0",
+        "total_rocket_launches INTEGER DEFAULT 0",
+        "lifetime_ore_earned FLOAT DEFAULT 0",
+    ]:
+        try:
+            db.session.execute(db.text(f"ALTER TABLE player_state ADD COLUMN {col_def}"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()  # column already exists — safe to ignore
 
 if __name__ == "__main__":
     with app.app_context():
