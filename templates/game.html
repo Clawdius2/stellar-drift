@@ -796,6 +796,7 @@ function updateObjectives() {
 let canvas, ctx;
 let animFrame;
 let _animTime = 0; // global time counter for building animations
+let _hoveredSocket = null; // socket id currently hovered (for ghost preview)
 
 function initCanvas() {
   canvas = document.getElementById('asteroid-canvas');
@@ -812,6 +813,37 @@ function resizeCanvas() {
   canvas.height = size;
 }
 
+// =============================================================================
+// STRESS / ATMOSPHERE HELPERS
+// =============================================================================
+function _getColonyStress() {
+  // Returns 0 (healthy) to 1 (critical) based on O2 and power deficit
+  if (!G || G.status !== 'playing') return 0;
+  const oxy = G.resources.oxygen;
+  const powerProd = G.rates.power_per_second;
+  const powerDemand = Object.entries(G.buildings_placed).reduce((sum, [bid, cnt]) => {
+    return sum + (BUILDINGS_DEF[bid]?.effects?.power_per_second || 0) * cnt;
+  }, 0);
+  const deficit = powerDemand > powerProd && powerDemand > 0;
+
+  let s = 0;
+  if (oxy <= 10) s = 1.0;
+  else if (oxy <= 25) s = 0.8;
+  else if (oxy <= 50) s = 0.4;
+  if (deficit) s = Math.max(s, 0.4);
+  return s;
+}
+
+function _getBuildingStress(buildingId) {
+  // Returns 0-1 stress for a specific building
+  const s = _getColonyStress();
+  if (s < 0.4) return 0;
+  // Extraction buildings glow orange when stressed
+  const cat = BUILDINGS_DEF[buildingId]?.category;
+  if (cat === 'extraction') return s * 0.6;
+  return s * 0.3;
+}
+
 function updateAsteroid() {
   if (!G || !ctx) return;
   drawAsteroid();
@@ -825,6 +857,9 @@ function drawAsteroid() {
   const cx = W / 2;
   const cy = H / 2;
   const radius = Math.min(W, H) * 0.42;
+
+  // Calculate colony stress level (0=healthy, 1=critical)
+  const stress = _getColonyStress();
 
   ctx.clearRect(0, 0, W, H);
 
@@ -876,6 +911,42 @@ function drawAsteroid() {
   ctx.arc(cx, cy, radius, 0, Math.PI*2);
   ctx.fillStyle = rimGrad;
   ctx.fill();
+
+  // =============================================
+  // STRESS ATMOSPHERE — Phase 4
+  // =============================================
+  if (stress > 0) {
+    const pulse = Math.sin(_animTime * 3) * 0.5 + 0.5;
+
+    // Red atmospheric vignette around asteroid
+    const vignetteGrad = ctx.createRadialGradient(cx, cy, radius * 0.7, cx, cy, radius * 1.15);
+    vignetteGrad.addColorStop(0, `rgba(220,38,38,0)`);
+    vignetteGrad.addColorStop(0.6, `rgba(220,38,38,${stress * 0.12 * pulse})`);
+    vignetteGrad.addColorStop(1, `rgba(220,38,38,${stress * 0.22 * pulse})`);
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 1.15, 0, Math.PI*2);
+    ctx.fillStyle = vignetteGrad;
+    ctx.fill();
+
+    // Pulsing red rim ring
+    const rimAlpha = stress * (0.15 + pulse * 0.2);
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + 3, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(220,38,38,${rimAlpha})`;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Warning flicker overlay (subtle)
+    if (stress >= 0.7) {
+      const flicker = Math.random() > 0.85 ? 0.06 : 0;
+      if (flicker > 0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(220,38,38,${flicker})`;
+        ctx.fill();
+      }
+    }
+  }
 
   // Nodes (ore / crystal)
   const nodePositions = {
@@ -961,10 +1032,20 @@ function drawAsteroid() {
     if (socket.occupied) {
       const bId = socket.building_id;
       const isSel = isSelected(socket);
-      // Count-based scale: first building is 1.0, each additional same building adds +0.08
       const placed = G ? (G.buildings_placed[bId] || 1) : 1;
       const countScale = 1.0 + (placed - 1) * 0.07;
       const animTime = _animTime + (socket.id.charCodeAt(1) || 0) * 0.5;
+      const bstress = _getBuildingStress(bId);
+
+      // Stress overlay — orange tint + warning ring when colony is stressed
+      if (bstress > 0) {
+        const pulse = Math.sin(_animTime * 4) * 0.5 + 0.5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 24 + bstress * 6, 0, Math.PI*2);
+        ctx.strokeStyle = `rgba(249,115,22,${bstress * (0.3 + pulse * 0.3)})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
 
       // Glow ring behind building
       ctx.beginPath();
@@ -998,6 +1079,8 @@ function drawAsteroid() {
     } else if (socket.unlocked) {
       // Empty unlocked socket
       const isHighlighted = showGlow(socket);
+      const isHovered = (_hoveredSocket === socket.id) && selectedBuilding;
+
       ctx.beginPath();
       ctx.arc(sx, sy, socketR, 0, Math.PI*2);
       ctx.strokeStyle = isHighlighted ? "rgba(0,212,255,0.9)" : (isSelected(socket) ? "rgba(0,212,255,0.8)" : "rgba(255,255,255,0.2)");
@@ -1010,6 +1093,14 @@ function drawAsteroid() {
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.shadowBlur = 0;
+
+      // Ghost placement preview
+      if (isHovered && selectedBuilding) {
+        ctx.save();
+        ctx.globalAlpha = 0.5 + Math.sin(_animTime * 3) * 0.1;
+        drawBuilding(ctx, selectedBuilding.id, sx, sy, 1.0, _animTime, false);
+        ctx.restore();
+      }
 
       // Store click target
       if (!document.getElementById("sock-" + socket.id)) {
@@ -1479,21 +1570,26 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     let nearSocket = null;
+    let nearEmptySocket = null;
     const hitRadius = 22;
     G.map.sockets.forEach(socket => {
-      if (!socket.unlocked) {
-        const pos = socketPositions[socket.position_key];
-        if (!pos) return;
-        const sx = cx + Math.cos(pos.angle) * pos.dist * radius;
-        const sy = cy + Math.sin(pos.angle) * pos.dist * radius;
-        if (Math.hypot(x - sx, y - sy) < hitRadius) {
-          nearSocket = socket;
-        }
+      const pos = socketPositions[socket.position_key];
+      if (!pos) return;
+      const sx = cx + Math.cos(pos.angle) * pos.dist * radius;
+      const sy = cy + Math.sin(pos.angle) * pos.dist * radius;
+      if (Math.hypot(x - sx, y - sy) < hitRadius) {
+        nearSocket = socket;
+        if (!socket.unlocked) return;
+        nearEmptySocket = socket;
       }
     });
 
+    // Update ghost placement hover target
+    _hoveredSocket = nearEmptySocket ? nearEmptySocket.id : null;
+
+    // Show locked socket tooltip or ghost preview
     const tip = document.getElementById("locked-socket-tooltip");
-    if (nearSocket) {
+    if (nearSocket && !nearSocket.unlocked) {
       tip.style.display = "block";
       tip.style.left = (e.clientX + 14) + "px";
       tip.style.top = (e.clientY - 10) + "px";
@@ -1603,12 +1699,32 @@ function showFailureScreen() {
   if (!G) return;
   const minutes = Math.floor(G.elapsed_seconds / 60);
   const seconds = Math.floor(G.elapsed_seconds % 60);
-  const rocketPct = (Object.values(G.rocket).filter(p=>p.complete).length / 4 * 100).toFixed(0);
+  const completeParts = Object.values(G.rocket).filter(p=>p.complete).length;
+  const totalBuildings = Object.values(G.buildings_placed).reduce((a,b)=>a+b,0);
+  const techCount = G.tech_unlocked.length;
+
+  // Build summary
+  const buildingSummary = Object.entries(G.buildings_placed)
+    .filter(([,count]) => count > 0)
+    .map(([id, count]) => {
+      const b = BUILDINGS_DEF[id];
+      return `${BUILDING_ICONS[id] || '🏗️'} ${b?.name || id}: ${count}`;
+    }).join(' · ') || 'None';
+
+  const techSummary = G.tech_unlocked
+    .map(tid => TECHS_DEF[tid]?.name || tid)
+    .join(' · ') || 'None';
+
   stats.innerHTML = `
-    <div>Time survived: ${minutes}:${seconds.toString().padStart(2,'0')}</div>
-    <div>Rocket completion: ${rocketPct}%</div>
-    <div>Buildings placed: ${Object.values(G.buildings_placed).reduce((a,b)=>a+b,0)}</div>
-    <div>Tech researched: ${G.tech_unlocked.length}</div>
+    <div class="fail-stat"><span class="fail-label">Time survived</span><span class="fail-val">${minutes}:${seconds.toString().padStart(2,'0')}</span></div>
+    <div class="fail-stat"><span class="fail-label">Buildings</span><span class="fail-val">${totalBuildings}</span></div>
+    <div class="fail-stat"><span class="fail-label">Rocket parts</span><span class="fail-val">${completeParts}/4</span></div>
+    <div class="fail-stat"><span class="fail-label">Techs</span><span class="fail-val">${techCount}</span></div>
+    <div class="fail-divider"></div>
+    <div class="fail-summary-label">What you built</div>
+    <div class="fail-summary">${buildingSummary}</div>
+    <div class="fail-summary-label" style="margin-top:0.4rem">Research</div>
+    <div class="fail-summary">${techSummary}</div>
   `;
   el.style.display = "flex";
 }

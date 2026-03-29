@@ -968,6 +968,47 @@ body {
   margin-bottom: 0.4rem;
 }
 
+/* Failure screen detailed stats */
+.fail-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.fail-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.fail-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.fail-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.5rem 0;
+}
+
+.fail-summary-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  margin-bottom: 0.2rem;
+}
+
+.fail-summary {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
 .overlay .btn-primary {
   margin-top: 1.5rem;
   padding: 0.75rem 2rem;
