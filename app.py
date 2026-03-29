@@ -3,6 +3,7 @@ import os
 import time
 import uuid
 import json
+import gevent
 from flask import Flask, render_template, request, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
@@ -30,9 +31,9 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
-    async_mode="eventlet",
     ping_interval=25,
     ping_timeout=60,
+    message_queue=os.environ.get("REDIS_URL", None),
 )
 
 # Active game rooms: {room_id: game_state}
@@ -48,7 +49,6 @@ def index():
 
 @app.route("/game")
 def game():
-    # Inject game config data into the page
     return render_template("game.html",
         buildings_json=json.dumps(BUILDINGS),
         techs_json=json.dumps(TECHS),
@@ -59,7 +59,6 @@ def game():
 # SOCKET.IO — GAME EVENTS
 # =============================================================================
 
-# Railway auto-deploy trigger
 @socketio.on("connect")
 def on_connect():
     sid = request.sid
@@ -180,31 +179,32 @@ def on_launch(data):
     })
 
 # =============================================================================
-# TICK LOOP — server-authoritative simulation
+# TICK LOOP — server-authoritative simulation (gevent greenlet)
 # =============================================================================
 
-def run_tick_loop():
-    """Background loop running the server simulation tick."""
-    last_tick = time.time()
+def _tick_loop():
+    """Run simulation ticks every TICK_INTERVAL_MS and broadcast state."""
     TICK_SEC = TICK_INTERVAL_MS / 1000.0
+    last_tick = time.time()
     while True:
         now = time.time()
         elapsed = now - last_tick
         if elapsed >= TICK_SEC:
-            last_tick = now - (elapsed - TICK_SEC)  # don't drift
-            for room, state in list(rooms.items()):
-                if state["status"] == "playing":
+            # Correct for drift
+            last_tick = now - (elapsed - TICK_SEC)
+            # Copy keys to avoid dict changed size during iteration
+            for room in list(rooms.keys()):
+                state = rooms.get(room)
+                if state and state["status"] == "playing":
                     do_tick(room, TICK_SEC)
-                    # Broadcast state to room
                     socketio.emit("state_update", {"state": get_client_state(state)}, room=room)
+        gevent.sleep(0.02)  # sleep 20ms between iterations (50 checks/sec max)
 
-# Start tick loop in background thread
-import threading
-tick_thread = threading.Thread(target=run_tick_loop, daemon=True)
-tick_thread.start()
+# Start tick greenlet when the module is loaded (works for both `python app.py` and gunicorn)
+_tick_greenlet = gevent.spawn(_tick_loop)
 
 # =============================================================================
-# MAIN
+# MAIN  (only used when running directly with `python app.py`)
 # =============================================================================
 
 if __name__ == "__main__":
