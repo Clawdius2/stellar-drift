@@ -101,17 +101,20 @@ def on_new_run(data):
 @socketio.on("tap")
 def on_tap(data):
     room = session.get("room")
-    print(f"[tap] room={room}, rooms={list(rooms.keys())}")
+    node_id = data.get("node_id", "N1")
+    print(f"[tap] room={room!r} rooms={list(rooms.keys())} node={node_id}")
     if not room or room not in rooms:
+        print(f"[tap] FAIL: room missing")
         return
     state = rooms[room]
+    print(f"[tap] status={state['status']}")
     if state["status"] != "playing":
         emit("state_update", {"state": get_client_state(state)})
         return
 
-    node_id = data.get("node_id", "N1")
     gained = tap_node(state, node_id)
     _recalculate_rates(state)
+    print(f"[tap] gained={gained}, ore now={state['resources']['ore']}")
 
     emit("state_update", {
         "state": get_client_state(state),
