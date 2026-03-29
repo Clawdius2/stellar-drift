@@ -3,1160 +3,902 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Stellar Drift — Mine the Galaxy</title>
+  <title>Stellar Drift v2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    :root {
-      --bg: #060912;
-      --bg2: #0a0f20;
-      --bg3: #0f1629;
-      --bg4: #151d35;
-      --accent: #00d4ff;
-      --accent2: #ff6b35;
-      --ore: #f4a460;
-      --gas: #9370db;
-      --crystals: #00ced1;
-      --dark: #cc0000;
-      --text: #e8eaf6;
-      --text-dim: #5c6bc0;
-      --border: #1a2350;
-      --success: #00e676;
-      --rocket: #ff9500;
-    }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Exo 2', sans-serif;
-      min-height: 100vh;
-      overflow-x: hidden;
-      user-select: none;
-    }
-    body.shake { animation: screenShake 0.15s ease-out; }
-    @keyframes screenShake {
-      0%,100% { transform: translateX(0); }
-      25% { transform: translateX(-3px) translateY(1px); }
-      75% { transform: translateX(3px) translateY(-1px); }
-    }
-    h1, h2, h3, h4 { font-family: 'Orbitron', sans-serif; letter-spacing: 0.5px; }
-    button { cursor: pointer; font-family: 'Exo 2', sans-serif; }
-
-    /* Stars background */
-    .stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-    .stars canvas { width: 100%; height: 100%; }
-
-    /* Layout */
-    .game-wrapper { position: relative; z-index: 1; max-width: 600px; margin: 0 auto; padding-bottom: 100px; }
-
-    /* Top bar */
-    .top-bar {
-      position: sticky; top: 0; z-index: 50;
-      background: rgba(6,9,18,0.95);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid var(--border);
-      padding: 0.5rem 1rem;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .top-brand { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 0.9rem; color: var(--accent); }
-    .top-save { font-size: 0.7rem; color: var(--text-dim); }
-    .top-save.saving { color: var(--success); }
-
-    /* Rocket launch bar */
-    .rocket-bar {
-      margin: 0.5rem 0.75rem;
-      background: var(--bg2);
-      border: 1px solid var(--rocket);
-      border-radius: 10px;
-      padding: 0.6rem 1rem;
-      display: flex; align-items: center; gap: 0.75rem;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .rocket-bar:hover { background: var(--bg3); }
-    .rocket-bar.launched { border-color: var(--success); }
-    .rocket-icon { font-size: 1.4rem; flex-shrink: 0; }
-    .rocket-info { flex: 1; }
-    .rocket-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.2rem; }
-    .rocket-name { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--rocket); }
-    .rocket-bar.launched .rocket-name { color: var(--success); }
-    .rocket-progress-bar {
-      width: 100%; height: 6px;
-      background: var(--bg4);
-      border-radius: 3px;
-      margin-top: 0.4rem;
-      overflow: hidden;
-    }
-    .rocket-progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--rocket), #ffcc00);
-      border-radius: 3px;
-      transition: width 0.5s ease;
-    }
-    .rocket-pct { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 700; color: var(--rocket); flex-shrink: 0; }
-    .rocket-bar.launched .rocket-pct { color: var(--success); }
-
-    /* Resources */
-    .resources-bar {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 0.5rem; padding: 0.75rem;
-    }
-    .resource-card {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 0.6rem 0.8rem;
-      display: flex; align-items: center; gap: 0.6rem;
-    }
-    .resource-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-    .resource-info { flex: 1; min-width: 0; }
-    .resource-name { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
-    .resource-value { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 600; }
-    .resource-rate { font-size: 0.65rem; color: var(--text-dim); }
-
-    /* Tap zone */
-    .tap-zone {
-      position: relative;
-      display: flex; flex-direction: column; align-items: center;
-      padding: 1.5rem 1rem;
-    }
-    .asteroid-container {
-      position: relative; width: 160px; height: 160px;
-      margin-bottom: 1rem;
-    }
-    .asteroid {
-      width: 100%; height: 100%;
-      background: radial-gradient(ellipse at 38% 32%, #9a7840 0%, #7a5c20 25%, #4a3810 55%, #2a1e05 80%, #1a1203 100%);
-      border-radius: 50% 45% 55% 48% / 52% 48% 55% 45%;
-      cursor: pointer;
-      transition: transform 0.05s;
-      display: flex; align-items: center; justify-content: center;
-      position: relative;
-      overflow: hidden;
-    }
-    .asteroid::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background:
-        /* Surface highlights */
-        radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.07) 0%, transparent 22%),
-        radial-gradient(ellipse at 70% 75%, rgba(0,0,0,0.2) 0%, transparent 20%),
-        /* Crater rims — dark rings */
-        radial-gradient(ellipse at 22% 60%, rgba(0,0,0,0.4) 0%, transparent 18%),
-        radial-gradient(ellipse at 65% 20%, rgba(0,0,0,0.3) 0%, transparent 15%),
-        radial-gradient(ellipse at 80% 55%, rgba(0,0,0,0.35) 0%, transparent 14%),
-        radial-gradient(ellipse at 40% 85%, rgba(0,0,0,0.3) 0%, transparent 17%),
-        /* Crater floors — darker pits */
-        radial-gradient(ellipse at 55% 45%, rgba(0,0,0,0.25) 0%, transparent 12%),
-        radial-gradient(ellipse at 15% 35%, rgba(0,0,0,0.2) 0%, transparent 10%),
-        radial-gradient(ellipse at 85% 30%, rgba(0,0,0,0.2) 0%, transparent 9%),
-        /* Subtle rocky ridges */
-        radial-gradient(ellipse at 45% 15%, rgba(255,255,255,0.04) 0%, transparent 13%);
-      border-radius: inherit;
-      pointer-events: none;
-    }
-    .asteroid::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      box-shadow:
-        inset -12px -8px 30px rgba(0,0,0,0.65),
-        inset 8px 6px 20px rgba(0,0,0,0.3),
-        inset -4px 14px 18px rgba(0,0,0,0.4),
-        inset 16px -6px 22px rgba(0,0,0,0.35),
-        inset -20px -12px 25px rgba(0,0,0,0.5),
-        inset 6px 16px 15px rgba(0,0,0,0.3),
-        0 0 60px rgba(244,164,96,0.15),
-        0 0 100px rgba(180,110,40,0.08);
-      pointer-events: none;
-    }
-    .asteroid:active { transform: scale(0.94); }
-    .asteroid-inner {
-      width: 60%; height: 60%;
-      background: radial-gradient(ellipse, #5a4008 0%, #3d2f05 100%);
-      border-radius: 50%;
-      box-shadow: inset 5px 5px 15px rgba(0,0,0,0.6);
-    }
-    .tap-hint {
-      color: var(--text-dim); font-size: 0.75rem;
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
-
-    /* Tap particles */
-    .tap-particle {
-      position: absolute;
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--ore);
-      pointer-events: none;
-      z-index: 50;
-      animation: particleBurst 0.6s ease-out forwards;
-    }
-    @keyframes particleBurst {
-      0% { opacity: 1; transform: translate(0, 0) scale(1); }
-      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
-    }
-
-    /* Floating numbers */
-    .float-number {
-      position: absolute;
-      font-family: 'Orbitron', sans-serif;
-      font-weight: 700;
-      font-size: 1.2rem;
-      pointer-events: none;
-      animation: floatUp 0.8s ease-out forwards;
-      z-index: 100;
-      text-shadow: 0 0 8px rgba(244,164,96,0.8);
-    }
-    @keyframes floatUp {
-      0% { opacity: 1; transform: translateY(0) scale(1); }
-      100% { opacity: 0; transform: translateY(-60px) scale(0.8); }
-    }
-
-    /* Combo burst */
-    .combo-burst {
-      position: absolute;
-      font-family: 'Orbitron', sans-serif;
-      font-weight: 900;
-      font-size: 1.5rem;
-      color: var(--success);
-      pointer-events: none;
-      animation: comboPop 0.8s ease-out forwards;
-      z-index: 101;
-      text-shadow: 0 0 12px rgba(0,230,118,0.8);
-    }
-    @keyframes comboPop {
-      0% { opacity: 0; transform: scale(0.5) translateY(0); }
-      20% { opacity: 1; transform: scale(1.2) translateY(-10px); }
-      100% { opacity: 0; transform: scale(0.9) translateY(-80px); }
-    }
-
-    /* Section panels */
-    .panel {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      margin: 0.5rem 0.75rem;
-      overflow: hidden;
-    }
-    .panel-header {
-      padding: 0.75rem 1rem;
-      display: flex; justify-content: space-between; align-items: center;
-      cursor: pointer;
-      background: var(--bg3);
-      border-bottom: 1px solid var(--border);
-    }
-    .panel-header h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); }
-    .panel-toggle { font-size: 0.8rem; color: var(--text-dim); transition: transform 0.2s; }
-    .panel.open .panel-toggle { transform: rotate(180deg); }
-    .panel-body { display: none; padding: 0.75rem; }
-    .panel.open .panel-body { display: block; }
-
-    /* Building cards */
-    .item-grid { display: flex; flex-direction: column; gap: 0.5rem; }
-    .item-card {
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.7rem 0.9rem;
-      display: flex; align-items: center; gap: 0.75rem;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .item-card:hover { background: var(--bg4); }
-    .item-card.affordable { border-color: var(--accent); }
-    .item-card.owned { border-color: var(--success); opacity: 0.7; }
-    .item-card.locked { opacity: 0.4; cursor: not-allowed; }
-    .item-card.just-bought { animation: cardPop 0.3s ease-out; }
-    @keyframes cardPop {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.03); border-color: var(--success); }
-      100% { transform: scale(1); }
-    }
-    .item-icon {
-      width: 36px; height: 36px;
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.1rem; flex-shrink: 0;
-    }
-    .item-info { flex: 1; min-width: 0; }
-    .item-name { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.15rem; }
-    .item-desc { font-size: 0.7rem; color: var(--text-dim); }
-    .item-meta { text-align: right; flex-shrink: 0; }
-    .item-cost { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; }
-    .item-count { font-size: 0.65rem; color: var(--text-dim); }
-    .item-badge {
-      display: inline-block;
-      background: var(--success);
-      color: #000;
-      font-size: 0.6rem;
-      font-weight: 700;
-      padding: 0.1rem 0.4rem;
-      border-radius: 4px;
-    }
-    .tier-badge {
-      display: inline-block;
-      background: var(--bg4);
-      color: var(--text-dim);
-      font-size: 0.55rem;
-      font-weight: 700;
-      padding: 0.1rem 0.3rem;
-      border-radius: 3px;
-      margin-right: 0.3rem;
-      vertical-align: middle;
-    }
-
-    /* Prestige */
-    .prestige-section { padding: 1rem; text-align: center; }
-    .prestige-btn {
-      background: linear-gradient(135deg, #cc0000, #8b0000);
-      color: #fff;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.85rem;
-      padding: 0.8rem 2rem;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      width: 100%;
-      transition: transform 0.1s;
-    }
-    .prestige-btn:hover { transform: scale(1.02); }
-    .prestige-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-    .prestige-info { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem; }
-
-    /* Daily missions */
-    .missions-panel { padding: 0.75rem; }
-    .missions-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 0.75rem;
-    }
-    .missions-header h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); }
-    .missions-reset { font-size: 0.65rem; color: var(--text-dim); }
-    .mission-card {
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
-      margin-bottom: 0.5rem;
-      display: flex; align-items: center; gap: 0.75rem;
-      cursor: pointer;
-      transition: border-color 0.2s, opacity 0.2s;
-    }
-    .mission-card:hover { border-color: var(--accent); }
-    .mission-card.completed { opacity: 0.5; cursor: default; border-color: var(--success); }
-    .mission-card.claimable { border-color: var(--success); animation: claimPulse 1s infinite; }
-    @keyframes claimPulse {
-      0%,100% { box-shadow: 0 0 0 0 rgba(0,230,118,0.4); }
-      50% { box-shadow: 0 0 0 6px rgba(0,230,118,0); }
-    }
-    .mission-icon { font-size: 1.3rem; flex-shrink: 0; width: 32px; text-align: center; }
-    .mission-info { flex: 1; }
-    .mission-name { font-size: 0.82rem; font-weight: 600; margin-bottom: 0.2rem; }
-    .mission-progress { font-size: 0.7rem; color: var(--text-dim); }
-    .mission-progress-bar {
-      width: 100%; height: 4px;
-      background: var(--bg4);
-      border-radius: 2px;
-      margin-top: 0.3rem;
-    }
-    .mission-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
-    .mission-card.claimable .mission-progress-fill { background: var(--success); }
-    .mission-reward { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 700; color: var(--dark); flex-shrink: 0; }
-    .mission-card.claimable .mission-reward { color: var(--success); cursor: pointer; }
-
-    /* Toast notifications */
-    .toast {
-      position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
-      background: var(--bg4);
-      border: 1px solid var(--accent);
-      border-radius: 10px;
-      padding: 0.8rem 1.2rem;
-      z-index: 200;
-      text-align: center;
-      animation: slideDown 0.3s ease-out;
-      max-width: 90%;
-    }
-    .toast h4 { font-size: 0.75rem; margin-bottom: 0.3rem; color: var(--accent); }
-    .toast p { font-size: 0.85rem; }
-    @keyframes slideDown {
-      from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-      to { opacity: 1; transform: translateX(-50%) translateY(0); }
-    }
-    .toast.hide { animation: slideUp 0.3s ease-in forwards; }
-    @keyframes slideUp {
-      to { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-    }
-
-    /* Milestone toast */
-    .milestone-toast {
-      position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
-      background: linear-gradient(135deg, #1a1a2e, #16213e);
-      border: 2px solid #ffd700;
-      border-radius: 12px;
-      padding: 1rem 1.5rem;
-      z-index: 201;
-      text-align: center;
-      animation: milestoneSlide 0.4s ease-out;
-      max-width: 90%;
-      box-shadow: 0 0 30px rgba(255,215,0,0.3);
-    }
-    .milestone-toast h4 { font-size: 0.8rem; color: #ffd700; margin-bottom: 0.3rem; letter-spacing: 1px; }
-    .milestone-toast p { font-size: 0.9rem; font-weight: 600; }
-    @keyframes milestoneSlide {
-      0% { opacity: 0; transform: translateX(-50%) scale(0.8); }
-      100% { opacity: 1; transform: translateX(-50%) scale(1); }
-    }
-
-    /* Bottom nav */
-    .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: rgba(6,9,18,0.97);
-      backdrop-filter: blur(10px);
-      border-top: 1px solid var(--border);
-      display: flex; justify-content: space-around;
-      padding: 0.5rem 0;
-      z-index: 50;
-    }
-    .nav-tab {
-      background: none; border: none;
-      color: var(--text-dim);
-      padding: 0.3rem 1rem;
-      transition: color 0.15s;
-    }
-    .nav-tab.active { color: var(--accent); }
-    .nav-tab .icon { font-size: 1.2rem; }
-
-    /* Research tier */
-    .research-tier { margin-bottom: 0.75rem; }
-    .tier-label { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 1px; }
-  </style>
+  <link rel="stylesheet" href="/static/css/game.css">
 </head>
 <body>
-  <div class="stars"><canvas id="starCanvas"></canvas></div>
 
-  <!-- Offline gains toast -->
-  <div id="offlineToast" class="toast" style="display:none;">
-    <h4>🌟 Welcome Back, Commander!</h4>
-    <p id="offlineGains"></p>
+<div class="app-layout">
+
+<!-- ============================================================
+     ZONE A — TOP HUD BAR
+     ============================================================ -->
+<header class="hud">
+  <div class="hud-logo">⛏️ STELLAR DRIFT</div>
+
+  <!-- Oxygen — center of HUD, most prominent -->
+  <div class="oxygen-block">
+    <div class="oxygen-label">
+      <span class="oxygen-icon">🫁</span>
+      <span>OXYGEN</span>
+      <span class="oxygen-val" id="oxy-val">100</span>
+      <span class="oxygen-drain" id="oxy-drain">-0.12/s</span>
+    </div>
+    <div class="oxygen-bar-outer">
+      <div class="oxygen-bar-fill" id="oxy-bar"></div>
+    </div  >
   </div>
 
-  <!-- Milestone toast -->
-  <div id="milestoneToast" class="milestone-toast" style="display:none;">
-    <h4>🏆 MILESTONE</h4>
-    <p id="milestoneLabel"></p>
-  </div>
-
-  <div class="game-wrapper">
-    <!-- Top bar -->
-    <div class="top-bar">
-      <div class="top-brand">⭐ STELLAR DRIFT</div>
-      <div class="top-save" id="saveStatus">Saved ✓</div>
+  <!-- Resources -->
+  <div class="resource-strip">
+    <div class="res-item" id="res-ore">
+      <span class="res-icon">�ite</span>
+      <span class="res-name">Ore</span>
+      <span class="res-val" id="ore-val">0</span>
+      <span class="res-rate" id="ore-rate">+0/s</span>
     </div>
-
-    <!-- Rocket launch bar -->
-    <div class="rocket-bar" id="rocketBar" onclick="openRocketModal()">
-      <div class="rocket-icon">🚀</div>
-      <div class="rocket-info">
-        <div class="rocket-label">Mission</div>
-        <div class="rocket-name">Escape the Asteroid Belt</div>
-        <div class="rocket-progress-bar">
-          <div class="rocket-progress-fill" id="rocketFill" style="width: 0%"></div>
-        </div>
-      </div>
-      <div class="rocket-pct" id="rocketPct">0%</div>
+    <div class="res-item" id="res-power">
+      <span class="res-icon">⚡</span>
+      <span class="res-name">Power</span>
+      <span class="res-val" id="power-val">0</span>
+      <span class="res-rate" id="power-rate">+0/s</span>
     </div>
-
-    <!-- Resources -->
-    <div class="resources-bar">
-      <div class="resource-card">
-        <div class="resource-dot" style="background: var(--ore);"></div>
-        <div class="resource-info">
-          <div class="resource-name">Ore</div>
-          <div class="resource-value" id="oreValue">0</div>
-          <div class="resource-rate" id="oreRate">+0/sec</div>
-        </div>
-      </div>
-      <div class="resource-card">
-        <div class="resource-dot" style="background: var(--gas);"></div>
-        <div class="resource-info">
-          <div class="resource-name">Gas</div>
-          <div class="resource-value" id="gasValue">0</div>
-          <div class="resource-rate" id="gasRate">+0/sec</div>
-        </div>
-      </div>
-      <div class="resource-card">
-        <div class="resource-dot" style="background: var(--crystals);"></div>
-        <div class="resource-info">
-          <div class="resource-name">Crystals</div>
-          <div class="resource-value" id="crystalsValue">0</div>
-          <div class="resource-rate" id="crystalsRate">+0/sec</div>
-        </div>
-      </div>
-      <div class="resource-card">
-        <div class="resource-dot" style="background: var(--dark);"></div>
-        <div class="resource-info">
-          <div class="resource-name">Dark Matter</div>
-          <div class="resource-value" id="darkValue">0</div>
-          <div class="resource-rate" id="darkRate">+0/sec</div>
-        </div>
-      </div>
+    <div class="res-item" id="res-alloy">
+      <span class="res-icon">🔩</span>
+      <span class="res-name">Alloy</span>
+      <span class="res-val" id="alloy-val">0</span>
+      <span class="res-rate" id="alloy-rate">+0/s</span>
     </div>
-
-    <!-- Tap zone -->
-    <div class="tap-zone" id="tapZone">
-      <div class="asteroid-container">
-        <div class="asteroid" id="asteroid">
-          <div class="asteroid-inner"></div>
-        </div>
-      </div>
-      <div class="tap-info">
-        <span>⛏️ <span id="tapPower">+1 ore/tap</span></span>
-        <span>🚀 <span id="multDisplay">1.0x</span> multiplier</span>
-      </div>
-      <div class="tap-hint">Tap the asteroid to mine ore!</div>
-    </div>
-
-    <!-- Buildings panel -->
-    <div class="panel open" id="buildingsPanel">
-      <div class="panel-header" onclick="togglePanel('buildingsPanel')">
-        <h3>🏗️ Buildings</h3>
-        <span class="panel-toggle">▼</span>
-      </div>
-      <div class="panel-body">
-        <div class="item-grid" id="buildingsGrid"></div>
-      </div>
-    </div>
-
-    <!-- Research panel -->
-    <div class="panel" id="researchPanel">
-      <div class="panel-header" onclick="togglePanel('researchPanel')">
-        <h3>🔬 Research</h3>
-        <span class="panel-toggle">▼</span>
-      </div>
-      <div class="panel-body">
-        <div class="item-grid" id="researchGrid"></div>
-      </div>
-    </div>
-
-    <!-- Prestige panel -->
-    <div class="panel" id="prestigePanel">
-      <div class="panel-header" onclick="togglePanel('prestigePanel')">
-        <h3>♻️ Prestige</h3>
-        <span class="panel-toggle">▼</span>
-      </div>
-      <div class="panel-body">
-        <div class="prestige-section">
-          <div id="prestigeInfo" style="margin-bottom: 0.75rem; font-size: 0.8rem; color: var(--text-dim);"></div>
-          <button class="prestige-btn" id="prestigeBtn" onclick="doPrestige()">⭐ GALACTIC CORE RESET</button>
-          <div class="prestige-info" id="prestigeEarn"></div>
-        </div>
-        <div class="item-grid" id="prestigeUpgrades"></div>
-      </div>
-    </div>
-
-    <!-- Daily Missions panel -->
-    <div class="panel" id="missionsPanel">
-      <div class="panel-header" onclick="togglePanel('missionsPanel')">
-        <h3>📋 Daily Missions</h3>
-        <span class="panel-toggle">▼</span>
-      </div>
-      <div class="panel-body missions-panel">
-        <div class="missions-header">
-          <h3>Today's Missions</h3>
-          <div class="missions-reset" id="missionsReset"></div>
-        </div>
-        <div id="missionsList"></div>
-      </div>
+    <div class="res-item" id="res-crystal">
+      <span class="res-icon">💎</span>
+      <span class="res-name">Crystal</span>
+      <span class="res-val" id="crystal-val">0</span>
+      <span class="res-rate" id="crystal-rate">+0/s</span>
     </div>
   </div>
 
-  <!-- Bottom nav -->
-  <nav class="bottom-nav">
-    <button class="nav-tab active" onclick="switchTab('buildings')">
-      <span class="icon">🏗️</span>
-      <span>Buildings</span>
-    </button>
-    <button class="nav-tab" onclick="switchTab('research')">
-      <span class="icon">🔬</span>
-      <span>Research</span>
-    </button>
-    <button class="nav-tab" onclick="switchTab('missions')">
-      <span class="icon">📋</span>
-      <span>Missions</span>
-    </button>
-    <button class="nav-tab" onclick="switchTab('prestige')">
-      <span class="icon">♻️</span>
-      <span>Prestige</span>
-    </button>
-  </nav>
+  <div class="hud-right">
+    <button class="btn-icon" onclick="newRun()" title="New Run">↺</button>
+  </div>
+</header>
 
+<!-- ============================================================
+     ZONE B — CENTER ASTEROID CANVAS
+     ============================================================ -->
+<main class="asteroid-zone" id="asteroid-zone">
+
+  <!-- Narrative messages -->
+  <div class="message-feed" id="message-feed">
+    <div class="home-icon" id="home-icon">🏠</div>
+  </div>
+
+  <!-- Asteroid canvas -->
+  <div class="asteroid-wrapper" id="asteroid-wrapper">
+    <canvas id="asteroid-canvas"></canvas>
+  </div>
+
+  <!-- Floating alerts -->
+  <div id="alerts"></div>
+
+  <!-- Overlay screens -->
+  <div class="overlay" id="overlay-failure" style="display:none">
+    <div class="overlay-card">
+      <h2>💀 OUT OF OXYGEN</h2>
+      <div id="failure-stats"></div>
+      <button class="btn-primary" onclick="newRun()">Try Again</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay-victory" style="display:none">
+    <div class="overlay-card victory">
+      <h2>🚀 ESCAPE SUCCESSFUL</h2>
+      <p>"You made it home."</p>
+      <div id="victory-stats"></div>
+      <button class="btn-primary" onclick="newRun()">Play Again</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ============================================================
+     ZONE C — RIGHT SIDEBAR (desktop) / BOTTOM DRAWER (mobile)
+     ============================================================ -->
+<aside class="sidebar" id="sidebar">
+
+  <!-- Tab buttons -->
+  <div class="sidebar-tabs">
+    <button class="tab-btn active" data-tab="build" onclick="switchTab('build')">🔨 Build</button>
+    <button class="tab-btn" data-tab="research" onclick="switchTab('research')">🔬 Research</button>
+    <button class="tab-btn" data-tab="rocket" onclick="switchTab('rocket')">🚀 Rocket</button>
+    <button class="tab-btn" data-tab="status" onclick="switchTab('status')">📊 Status</button>
+  </div>
+
+  <!-- BUILD TAB -->
+  <div class="sidebar-panel active" id="tab-build">
+    <div class="panel-section-title">Available Buildings</div>
+    <div id="buildings-list"></div>
+    <div id="placement-hint" class="placement-hint" style="display:none">
+      Tap a glowing socket on the asteroid to place.
+    </div>
+  </div>
+
+  <!-- RESEARCH TAB -->
+  <div class="sidebar-panel" id="tab-research">
+    <div class="panel-section-title">Tech Tree</div>
+    <div id="tech-list"></div>
+  </div>
+
+  <!-- ROCKET TAB -->
+  <div class="sidebar-panel" id="tab-rocket">
+    <div class="panel-section-title">Escape Rocket</div>
+    <div id="rocket-parts"></div>
+    <div id="rocket-launch-btn-area"></div>
+  </div>
+
+  <!-- STATUS TAB -->
+  <div class="sidebar-panel" id="tab-status">
+    <div class="panel-section-title">Mission Status</div>
+    <div id="status-content"></div>
+  </div>
+
+</aside>
+
+<!-- Mobile: show/hide sidebar toggle -->
+<button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">📋</button>
+
+<!-- Tap hint -->
+<div class="tap-hint-overlay" id="tap-hint">
+  Tap ore nodes on the asteroid to mine
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT — SOCKET.IO CLIENT + GAME LOGIC
+     ============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/socket.io-client@4/dist/socket.io.min.js"></script>
 <script>
 // =============================================================================
-// GAME CLIENT
+// SOCKET CONNECTION
 // =============================================================================
+const socket = io();
 
-const API = '/api/game';
-let G = null;
-let tapCombo = 0;
-let lastTapTime = 0;
+// game state
+let G = null;       // full server state
+let myRoom = null;  // socket room id
 
-function fmt(n) {
-  if (n < 1000) return n < 10 ? n.toFixed(1) : String(Math.floor(n));
-  if (n < 1e6) return (n/1e3).toFixed(1) + 'K';
-  if (n < 1e9) return (n/1e6).toFixed(1) + 'M';
-  if (n < 1e12) return (n/1e9).toFixed(1) + 'B';
-  return (n/1e12).toFixed(1) + 'T';
-}
-
-function togglePanel(id) {
-  document.getElementById(id).classList.toggle('open');
-}
-
-function switchTab(tab) {
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => {
-    if (t.textContent.toLowerCase().includes(tab)) t.classList.add('active');
-  });
-  ['buildingsPanel','researchPanel','prestigePanel','missionsPanel'].forEach(id => {
-    const el = document.getElementById(id);
-    const map = { buildings:'buildingsPanel', research:'researchPanel', prestige:'prestigePanel', missions:'missionsPanel' };
-    if (id === map[tab]) {
-      el.classList.add('open');
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      el.classList.remove('open');
-    }
-  });
-}
-
-function updateDisplay() {
-  if (!G) return;
-  const res = G.resources;
-
-  document.getElementById('oreValue').textContent = fmt(res.ore.value);
-  document.getElementById('oreRate').textContent = '+' + fmt(res.ore.rps) + '/sec';
-  document.getElementById('gasValue').textContent = fmt(res.gas.value);
-  document.getElementById('gasRate').textContent = '+' + fmt(res.gas.rps) + '/sec';
-  document.getElementById('crystalsValue').textContent = fmt(res.crystals.value);
-  document.getElementById('crystalsRate').textContent = '+' + fmt(res.crystals.rps) + '/sec';
-  document.getElementById('darkValue').textContent = fmt(res.dark_matter.value);
-  document.getElementById('darkRate').textContent = '+' + fmt(res.dark_matter.rps) + '/sec';
-  document.getElementById('multDisplay').textContent = G.multiplier.toFixed(1) + 'x';
-
-  // Rocket progress
-  const rp = G.rocket;
-  document.getElementById('rocketFill').style.width = rp.pct + '%';
-  document.getElementById('rocketPct').textContent = Math.floor(rp.pct) + '%';
-  if (rp.launched) {
-    document.getElementById('rocketBar').classList.add('launched');
-    document.getElementById('rocketPct').textContent = 'LAUNCHED';
-  }
-
-  // Daily missions
-  renderMissions();
-
-  renderBuildings();
-  renderResearch();
-  renderPrestige();
-}
+// UI state
+let activeTab = 'build';
+let selectedBuilding = null;  // {id, cost}
+let tapHints = [];
+let tapAnimations = [];
 
 // =============================================================================
-// TAP JUICE
+// SOCKET EVENTS
 // =============================================================================
+socket.on("connect", () => {
+  console.log("[socket] connected");
+});
 
-async function tap(e) {
-  const now = Date.now();
-  if (now - lastTapTime < 300) {
-    tapCombo++;
-  } else {
-    tapCombo = 1;
+socket.on("init", (data) => {
+  myRoom = data.room;
+  G = data.state;
+  renderAll();
+  updateAsteroid();
+  hideOverlay();
+  showTapHint();
+});
+
+socket.on("state_update", (data) => {
+  const prevStatus = G ? G.status : null;
+  const prevOxygen = G ? G.resources.oxygen : 100;
+
+  G = data.state;
+
+  // Handle tap result animation
+  if (data.tap_result) {
+    spawnTapEffect(data.tap_result.gained);
   }
-  lastTapTime = now;
 
-  const rect = document.getElementById('asteroid').getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-
-  // Combo burst every 10 taps
-  if (tapCombo > 0 && tapCombo % 10 === 0) {
-    showComboBurst(tapCombo, rect.width / 2, rect.height / 2);
-    screenShake();
+  // Handle action feedback
+  if (data.action_result && !data.action_result.success) {
+    showAlert(data.action_result.message, "warn");
+  } else if (data.action_result && data.action_result.success) {
+    // silent success — state update is enough
   }
 
-  spawnParticles(rect, x, y);
+  // Check status changes
+  if (prevStatus !== "won" && G.status === "won") {
+    showVictoryScreen();
+  } else if (prevStatus !== "lost" && G.status === "lost") {
+    showFailureScreen();
+  }
 
-  try {
-    const resp = await fetch(API + '/tap', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ resource: 'ore' }),
+  // Check for new messages
+  if (G.messages_shown) {
+    G.messages_shown.forEach(key => {
+      if (!window._shownMessages) window._shownMessages = new Set();
+      if (!window._shownMessages.has(key)) {
+        window._shownMessages.add(key);
+        showNarrative(key);
+      }
     });
-    const data = await resp.json();
-    showFloat(data.earned || 1, e.clientX, e.clientY);
-    G = data.game_state;
-    updateDisplay();
-  } catch(err) { console.error('Tap error:', err); }
-}
-
-function showFloat(amount, x, y) {
-  const zone = document.getElementById('tapZone');
-  const rect = zone.getBoundingClientRect();
-  const el = document.createElement('div');
-  el.className = 'float-number';
-  el.textContent = '+' + fmt(amount);
-  el.style.left = (x - rect.left) + 'px';
-  el.style.top = (y - rect.top) + 'px';
-  el.style.color = 'var(--ore)';
-  zone.appendChild(el);
-  setTimeout(() => el.remove(), 800);
-}
-
-function showComboBurst(combo, x, y) {
-  const zone = document.getElementById('tapZone');
-  const el = document.createElement('div');
-  el.className = 'combo-burst';
-  el.textContent = combo + 'x COMBO!';
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-  el.style.transform = 'translate(-50%, -50%)';
-  zone.appendChild(el);
-  setTimeout(() => el.remove(), 800);
-}
-
-function spawnParticles(asteroidRect, localX, localY) {
-  const zone = document.getElementById('tapZone');
-  const count = 3 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < count; i++) {
-    const p = document.createElement('div');
-    p.className = 'tap-particle';
-    const angle = (Math.PI * 2 * i / count) + Math.random() * 0.5;
-    const dist = 40 + Math.random() * 40;
-    p.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
-    p.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
-    p.style.left = localX + 'px';
-    p.style.top = localY + 'px';
-    p.style.background = Math.random() > 0.5 ? 'var(--ore)' : '#ffd700';
-    zone.appendChild(p);
-    setTimeout(() => p.remove(), 600);
   }
+
+  renderAll();
+  updateAsteroid();
+});
+
+socket.on("disconnect", () => {
+  console.log("[socket] disconnected");
+});
+
+// =============================================================================
+// GAME ACTIONS
+// =============================================================================
+function newRun() {
+  socket.emit("new_run", {});
 }
 
-function screenShake() {
-  document.body.classList.add('shake');
-  setTimeout(() => document.body.classList.remove('shake'), 150);
+function doTap(nodeId) {
+  socket.emit("tap", { node_id: nodeId || "N1" });
+}
+
+function placeBuilding(socketId) {
+  if (!selectedBuilding) return;
+  socket.emit("place_building", {
+    socket_id: socketId,
+    building_id: selectedBuilding.id,
+  });
+  selectedBuilding = null;
+  document.getElementById("placement-hint").style.display = "none";
+  document.querySelectorAll(".socket-glow").forEach(el => el.classList.remove("socket-glow"));
+}
+
+function doResearch(techId) {
+  socket.emit("research", { tech_id: techId });
+}
+
+function buildRocketPart(partId) {
+  socket.emit("build_rocket_part", { part_id: partId });
+}
+
+function doLaunch() {
+  socket.emit("launch", {});
 }
 
 // =============================================================================
-// RENDER BUILDINGS
+// RENDER
 // =============================================================================
+function renderAll() {
+  if (!G) return;
+  renderHUD();
+  renderBuildings();
+  renderTechs();
+  renderRocket();
+  renderStatus();
+}
+
+function renderHUD() {
+  if (!G) return;
+  const r = G.resources;
+
+  document.getElementById("ore-val").textContent = fmt(r.ore);
+  document.getElementById("ore-rate").textContent = `+${fmt(G.rates.ore_per_second)}/s`;
+  document.getElementById("power-val").textContent = fmt(r.power);
+  document.getElementById("power-rate").textContent = `+${fmt(G.rates.power_per_second)}/s`;
+  document.getElementById("alloy-val").textContent = fmt(r.alloy);
+  document.getElementById("alloy-rate").textContent = `+${fmt(G.rates.alloy_per_second)}/s`;
+  document.getElementById("crystal-val").textContent = fmt(r.crystal);
+  document.getElementById("crystal-rate").textContent = `+${fmt(G.rates.crystal_per_second)}/s`;
+
+  // Oxygen
+  const oxy = r.oxygen;
+  const drain = G.rates.oxygen_drain_per_second;
+  document.getElementById("oxy-val").textContent = fmt(oxy);
+  document.getElementById("oxy-drain").textContent = `-${fmt(drain)}/s`;
+  const pct = Math.max(0, Math.min(100, oxy));
+  const bar = document.getElementById("oxy-bar");
+  bar.style.width = pct + "%";
+  bar.className = "oxygen-bar-fill";
+  if (oxy <= 10) bar.classList.add("critical");
+  else if (oxy <= 25) bar.classList.add("danger");
+  else if (oxy <= 50) bar.classList.add("warning");
+}
 
 function renderBuildings() {
-  const grid = document.getElementById('buildingsGrid');
   if (!G) return;
-  const items = Object.entries(G.buildings);
-  items.sort((a, b) => {
-    const ca = G.buildings[a[0]].count > 0 ? 0 : 1;
-    const cb = G.buildings[b[0]].count > 0 ? 0 : 1;
-    if (ca !== cb) return ca - cb;
-    return (G.buildings[a[0]].tier || 1) - (G.buildings[b[0]].tier || 1);
-  });
+  const list = document.getElementById("buildings-list");
+  const unlocked = G.tech_unlocked || [];
 
-  grid.innerHTML = items.map(([id, b]) => {
-    const owned = b.count > 0;
-    const affordable = b.can_afford;
-    const locked = !owned && b.requires && !G.research[b.requires];
-    const tierClass = `tier-${b.tier || 1}`;
-    const cardClass = locked ? 'locked' : (affordable ? 'affordable' : (owned ? 'owned' : ''));
+  const html = Object.values(BUILDINGS_DEF).map(b => {
+    // Check if unlocked via tech
+    const techReq = b.unlock_tech;
+    const isUnlocked = !techReq || unlocked.includes(techReq);
+    if (!isUnlocked) return "";
+
+    // Check max per run
+    const placed = G.buildings_placed[b.id] || 0;
+    const atMax = b.max_per_run && placed >= b.max_per_run;
+    if (atMax) return "";
+
+    // Check affordability
+    const affordable = canAfford(G.resources, b.cost);
+
+    // Category badge
+    const catColor = { extraction: "#f4a460", sustainment: "#00d4ff", industrial: "#9370db", advanced: "#00ced1", escape: "#ff6b35", expansion: "#ffd700" }[b.category] || "#aaa";
+
     return `
-      <div class="item-card ${cardClass}" data-id="${id}" onclick="${locked ? '' : `buyBuilding('${id}')`}">
-        <div class="item-icon" style="background: rgba(244,164,96,0.2);">⛏️</div>
-        <div class="item-info">
-          <div class="item-name">
-            <span class="tier-badge ${tierClass}">T${b.tier||1}</span>
-            ${b.name}
-            ${owned ? `<span class="item-badge">x${b.count}</span>` : ''}
-          </div>
-          <div class="item-desc">${locked ? '🔒 ' : ''}${b.description}</div>
-          <div style="margin-top:0.3rem; font-size:0.65rem; color: var(--text-dim);">
-            Output: +${fmt(b.base_output)} ${b.produces}/sec each
-          </div>
+      <div class="build-card ${affordable ? 'affordable' : 'locked'}"
+           onclick="${affordable ? `selectBuilding('${b.id}')` : ''}">
+        <div class="build-header">
+          <span class="build-name">${b.name}</span>
+          <span class="build-cat" style="color:${catColor}">${b.category}</span>
         </div>
-        <div class="item-meta">
-          <div class="item-cost" style="color: ${b.cost_resource === 'ore' ? 'var(--ore)' : (b.cost_resource === 'crystals' ? 'var(--crystals)' : 'var(--dark)')};">
-            ${fmt(b.cost)} ${b.cost_resource}
-          </div>
+        <div class="build-desc">${b.description}</div>
+        <div class="build-costs">
+          ${Object.entries(b.cost).map(([res, amt]) =>
+            `<span class="cost-chip ${G.resources[res] >= amt ? 'can-afford' : 'cannot-afford'}">${fmt(amt)} ${res}</span>`
+          ).join(' ')}
         </div>
+        <div class="build-effects">
+          ${Object.entries(b.effects).filter(([k]) => k !== 'unlock_sockets' && k !== 'reveal_crystal_nodes' && k !== 'enable_rocket_assembly')
+            .map(([k, v]) => `<span class="effect-chip">${formatEffect(k, v)}</span>`).join(' ')}
+        </div>
+        ${b.oxygen_upkeep ? `<div class="build-oxy">🫁 +${b.oxygen_upkeep}/s drain</div>` : ''}
+        <div class="build-count">${placed > 0 ? `Placed: ${placed}${b.max_per_run ? '/' + b.max_per_run : ''}` : ''}</div>
       </div>
     `;
   }).join('');
+
+  list.innerHTML = html;
 }
 
-// =============================================================================
-// RENDER RESEARCH
-// =============================================================================
-
-function renderResearch() {
-  const grid = document.getElementById('researchGrid');
-  if (!G) return;
-  const items = Object.entries(G.research);
-  const tiers = {};
-  items.forEach(([id, r]) => {
-    const tier = r.tier || 1;
-    if (!tiers[tier]) tiers[tier] = [];
-    tiers[tier].push([id, r]);
+function selectBuilding(id) {
+  const b = BUILDINGS_DEF[id];
+  if (!b) return;
+  selectedBuilding = { id, cost: b.cost };
+  document.getElementById("placement-hint").style.display = "block";
+  // Highlight valid sockets
+  G.map.sockets.filter(s => s.unlocked && !s.occupied).forEach(s => {
+    const el = document.getElementById("sock-" + s.id);
+    if (el) el.classList.add("socket-glow");
   });
+  showAlert(`Tap a glowing socket to place ${b.name}`, "info");
+}
 
-  let html = '';
-  Object.keys(tiers).sort().forEach(tier => {
-    html += `<div class="research-tier"><div class="tier-label">═══ Tier ${tier} ═══</div>`;
-    html += tiers[tier].map(([id, r]) => {
-      const completed = r.completed;
-      const canBuy = r.can_buy;
-      const locked = !completed && r.requires && !G.research[r.requires];
-      const tierClass = `tier-${r.tier || 1}`;
-      const cardClass = completed ? 'owned' : (locked ? 'locked' : (canBuy ? 'affordable' : ''));
-      const effectDesc = r.effect.ore_mult ? `+${((r.effect.ore_mult-1)*100).toFixed(0)}% ore` :
-                         r.effect.offline_mult ? `+${((r.effect.offline_mult-1)*100).toFixed(0)}% offline` : '';
-      return `
-        <div class="item-card ${cardClass}" onclick="${completed || locked ? '' : `buyResearch('${id}')`}">
-          <div class="item-icon" style="background: rgba(0,212,255,0.15);">🔬</div>
-          <div class="item-info">
-            <div class="item-name">
-              <span class="tier-badge">T${r.tier||1}</span>
-              ${r.name}
-              ${completed ? '<span class="item-badge">✓</span>' : ''}
+function renderTechs() {
+  if (!G) return;
+  const list = document.getElementById("tech-list");
+  const unlocked = G.tech_unlocked || [];
+
+  const branches = ["extraction", "sustainment", "escape"];
+  const branchNames = { extraction: "⛏️ Extraction", sustainment: "🫁 Sustainment", escape: "🚀 Escape" };
+
+  const html = branches.map(branch => {
+    const techs = Object.values(TECHS_DEF).filter(t => t.branch === branch);
+    return `
+      <div class="tech-branch">
+        <div class="tech-branch-label">${branchNames[branch]}</div>
+        ${techs.map(t => {
+          const isUnlocked = unlocked.includes(t.id);
+          const metPrereqs = t.prerequisites.every(p => unlocked.includes(p));
+          const canResearch = !isUnlocked && metPrereqs && canAfford(G.resources, t.cost);
+
+          return `
+            <div class="tech-card ${isUnlocked ? 'done' : canResearch ? 'available' : 'locked'}"
+                 onclick="${canResearch ? `doResearch('${t.id}')` : ''}">
+              <div class="tech-name">${t.name}</div>
+              <div class="tech-desc">${t.description}</div>
+              ${!isUnlocked ? `
+                <div class="tech-costs">
+                  ${Object.entries(t.cost).map(([res, amt]) =>
+                    `<span class="cost-chip ${G.resources[res] >= amt ? 'can-afford' : 'cannot-afford'}">${fmt(amt)} ${res}</span>`
+                  ).join(' ')}
+                </div>` : '<div class="tech-done">✓ Researched</div>'}
             </div>
-            <div class="item-desc">${locked ? '🔒 ' : ''}${r.description}</div>
-            ${effectDesc ? `<div style="margin-top:0.2rem; font-size:0.65rem; color: var(--success);">${effectDesc}</div>` : ''}
-          </div>
-          <div class="item-meta">
-            ${!completed ? `<div class="item-cost" style="color: ${r.cost_resource === 'ore' ? 'var(--ore)' : 'var(--crystals)'};">${fmt(r.cost)} ${r.cost_resource}</div>` : ''}
-          </div>
-        </div>
-      `;
-    }).join('');
-    html += '</div>';
-  });
-  grid.innerHTML = html;
-}
-
-// =============================================================================
-// RENDER PRESTIGE
-// =============================================================================
-
-function renderPrestige() {
-  if (!G) return;
-  const p = G.prestige;
-  document.getElementById('prestigeBtn').disabled = !p.can_prestige;
-  document.getElementById('prestigeEarn').textContent = p.can_prestige
-    ? `Would earn: ⬡ ${p.would_earn} Dark Matter`
-    : p.count > 0 ? `Reach 1M ore lifetime to prestige again` : `Reach 1M ore lifetime to unlock`;
-
-  const info = document.getElementById('prestigeInfo');
-  info.textContent = `Prestige count: ${p.count} | Total multiplier: ${G.multiplier.toFixed(1)}x | Offline: ${G.offline_rate.toFixed(1)}x`;
-
-  const grid = document.getElementById('prestigeUpgrades');
-  grid.innerHTML = Object.entries(p.upgrades).map(([id, u]) => `
-    <div class="item-card ${u.can_afford ? 'affordable' : ''}" onclick="${u.can_afford ? `buyPrestigeUpgrade('${id}')` : ''}" style="margin-top:0.5rem;">
-      <div class="item-icon" style="background: rgba(204,0,0,0.2);">⬡</div>
-      <div class="item-info">
-        <div class="item-name">${u.name}</div>
-        <div style="font-size:0.65rem; color: var(--success);">${u.desc}</div>
-      </div>
-      <div class="item-meta">
-        <div class="item-cost" style="color: var(--dark);">⬡ ${u.cost} DM</div>
-      </div>
-    </div>
-  `).join('');
-}
-
-// =============================================================================
-// DAILY MISSIONS
-// =============================================================================
-
-function renderMissions() {
-  if (!G || !G.missions) return;
-  const ms = G.missions;
-  const list = document.getElementById('missionsList');
-
-  // Show reset time
-  const reset = new Date(ms.reset_at * 1000);
-  const hrs = reset.getHours().toString().padStart(2,'0');
-  const mins = reset.getMinutes().toString().padStart(2,'0');
-  document.getElementById('missionsReset').textContent = `Resets ${hrs}:${mins} UTC`;
-
-  const icons = { 'ore': '⛏️', 'tap': '👆', 'research': '🔬', 'building': '🏗️', 'login': '🚀' };
-  list.innerHTML = ms.missions.map((m, i) => {
-    const pct = Math.min(100, Math.floor((m.progress / m.target) * 100));
-    const claimable = m.progress >= m.target && !m.claimed;
-    const cls = m.claimed ? 'completed' : (claimable ? 'claimable' : '');
-    return `
-      <div class="mission-card ${cls}" onclick="${claimable ? `claimMission(${i})` : ''}">
-        <div class="mission-icon">${icons[m.type] || '⭐'}</div>
-        <div class="mission-info">
-          <div class="mission-name">${m.name}</div>
-          <div class="mission-progress">${fmt(m.progress)} / ${fmt(m.target)}</div>
-          <div class="mission-progress-bar">
-            <div class="mission-progress-fill" style="width:${pct}%"></div>
-          </div>
-        </div>
-        <div class="mission-reward">${claimable ? 'CLAIM ⬡' : `⬡ ${m.reward}`}</div>
+          `;
+        }).join('')}
       </div>
     `;
   }).join('');
+
+  list.innerHTML = html;
 }
 
-async function claimMission(idx) {
-  try {
-    const resp = await fetch(API + '/claim-mission', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ mission_index: idx }),
-    });
-    const data = await resp.json();
-    if (data.success) {
-      G = data.game_state;
-      updateDisplay();
-      showToast('⭐ Mission Complete!', `+${data.dark_matter_earned} Dark Matter`);
-    }
-  } catch(e) { console.error('Claim mission error:', e); }
-}
+function renderRocket() {
+  if (!G) return;
+  const container = document.getElementById("rocket-parts");
+  const assemblyEnabled = G.rocket_assembly_enabled;
 
-// =============================================================================
-// ROCKET LAUNCH
-// =============================================================================
+  const html = Object.entries(ROCKET_PARTS_DEF).map(([id, part]) => {
+    const rState = G.rocket[id];
+    if (!rState) return "";
+    const unlocked = rState.unlocked || assemblyEnabled;
+    const complete = rState.complete;
+    const affordable = unlocked && canAfford(G.resources, part.cost);
 
-function openRocketModal() {
-  if (!G || !G.rocket) return;
-  const r = G.rocket;
-  if (r.launched) {
-    alert('🚀 You already launched! Restarting your journey with +' + r.dark_matter_earned + ' Dark Matter bonus.');
-    return;
+    return `
+      <div class="rocket-part ${complete ? 'complete' : unlocked ? 'available' : 'locked'}">
+        <div class="part-name">${part.name} ${complete ? '✅' : ''}</div>
+        <div class="part-desc">${part.description}</div>
+        ${!complete && unlocked ? `
+          <div class="part-costs">
+            ${Object.entries(part.cost).map(([res, amt]) =>
+              `<span class="cost-chip ${G.resources[res] >= amt ? 'can-afford' : 'cannot-afford'}">${fmt(amt)} ${res}</span>`
+            ).join(' ')}
+          </div>
+          <button class="btn-part ${affordable ? 'btn-primary' : 'btn-disabled'}"
+                  onclick="${affordable ? `buildRocketPart('${id}')` : ''}"
+                  ${affordable ? '' : 'disabled'}>
+            Build ${part.name}
+          </button>` : ''}
+        ${!unlocked ? '<div class="part-locked">🔒 Locked</div>' : ''}
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = html;
+
+  // Launch button
+  const allComplete = Object.values(G.rocket).every(p => p.complete);
+  const launchArea = document.getElementById("rocket-launch-btn-area");
+  if (allComplete && G.status === "playing") {
+    launchArea.innerHTML = `<button class="btn-launch" onclick="doLaunch()">🚀 LAUNCH NOW</button>`;
+  } else {
+    launchArea.innerHTML = "";
   }
-  if (r.pct < 100) {
-    showToast('🚀 Mission In Progress', Math.floor(r.pct) + '% complete — keep mining!');
-    return;
+}
+
+function renderStatus() {
+  if (!G) return;
+  const content = document.getElementById("status-content");
+  const r = G.resources;
+  const rates = G.rates;
+
+  // Bottleneck hint
+  let bottleneck = "None — balanced growth";
+  if (G.buildings_placed.drill_rig && !G.buildings_placed.oxygen_recycler && r.oxygen < 40) {
+    bottleneck = "Oxygen — build life support soon";
+  } else if (G.buildings_placed.refinery && r.alloy < 5 && G.tech_unlocked.includes("launch_assembly")) {
+    bottleneck = "Alloy production — need more Refineries";
   }
-  if (confirm('🚀 LAUNCH THE ROCKET?\n\nThis will reset all resources and buildings, but you\'ll earn a permanent Dark Matter bonus!\n\nEarn: ⬡ ' + r.dark_matter_reward + ' Dark Matter')) {
-    doRocketLaunch();
+
+  const minutes = Math.floor(G.elapsed_seconds / 60);
+  const seconds = Math.floor(G.elapsed_seconds % 60);
+
+  content.innerHTML = `
+    <div class="status-row"><span>Run Time</span><span>${minutes}:${seconds.toString().padStart(2,'0')}</span></div>
+    <div class="status-row"><span>O2 Drain</span><span>-${fmt(rates.oxygen_drain_per_second)}/s</span></div>
+    <div class="status-row"><span>Ore/sec</span><span>+${fmt(rates.ore_per_second)}/s</span></div>
+    <div class="status-row"><span>Power/sec</span><span>+${fmt(rates.power_per_second)}/s</span></div>
+    <div class="status-row"><span>Alloy/sec</span><span>+${fmt(rates.alloy_per_second)}/s</span></div>
+    <div class="status-row"><span>Crystal/sec</span><span>+${fmt(rates.crystal_per_second)}/s</span></div>
+    <div class="status-row"><span>Ore/tap</span><span>${fmt(rates.ore_per_tap)}</span></div>
+    <div class="status-row"><span>Buildings</span><span>${Object.values(G.buildings_placed).reduce((a,b)=>a+b,0)}</span></div>
+    <div class="status-row"><span>Techs</span><span>${G.tech_unlocked.length}</span></div>
+    <div class="status-row"><span>Rocket</span><span>${Object.values(G.rocket).filter(p=>p.complete).length}/4 parts</span></div>
+    <div class="status-divider"></div>
+    <div class="bottleneck">⚠️ ${bottleneck}</div>
+  `;
+}
+
+// =============================================================================
+// ASTEROID CANVAS
+// =============================================================================
+let canvas, ctx;
+let animFrame;
+
+function initCanvas() {
+  canvas = document.getElementById("asteroid-canvas");
+  ctx = canvas.getContext("2d");
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+}
+
+function resizeCanvas() {
+  const wrapper = document.getElementById("asteroid-wrapper");
+  if (!canvas || !wrapper) return;
+  const size = Math.min(wrapper.clientWidth, wrapper.clientHeight, 400);
+  canvas.width = size;
+  canvas.height = size;
+}
+
+function updateAsteroid() {
+  if (!G || !ctx) return;
+  drawAsteroid();
+}
+
+function drawAsteroid() {
+  if (!G || !ctx) return;
+  const W = canvas.width;
+  const H = canvas.height;
+  const cx = W / 2;
+  const cy = H / 2;
+  const radius = Math.min(W, H) * 0.42;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Asteroid body
+  const grad = ctx.createRadialGradient(cx - radius*0.3, cy - radius*0.3, 0, cx, cy, radius);
+  grad.addColorStop(0, "#8a7040");
+  grad.addColorStop(0.4, "#5a4820");
+  grad.addColorStop(0.7, "#3a2c10");
+  grad.addColorStop(1, "#1a1005");
+
+  ctx.beginPath();
+  // Lumpy asteroid outline
+  for (let a = 0; a <= Math.PI * 2; a += 0.1) {
+    const bump = 1 + 0.06 * Math.sin(a * 5) + 0.04 * Math.cos(a * 3);
+    const r = radius * bump;
+    const x = cx + Math.cos(a) * r;
+    const y = cy + Math.sin(a) * r;
+    if (a === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
-}
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
 
-async function doRocketLaunch() {
-  try {
-    const resp = await fetch(API + '/rocket-launch', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({}),
-    });
-    const data = await resp.json();
-    if (data.success) {
-      G = data.game_state;
-      updateDisplay();
-      showToast('🚀 LAUNCH SUCCESSFUL!', '+' + data.dark_matter_earned + ' Dark Matter earned!');
+  // Crater shadows
+  const craters = [
+    { x: -0.25, y: -0.2, r: 0.12 },
+    { x: 0.3, y: -0.15, r: 0.08 },
+    { x: 0.15, y: 0.3, r: 0.1 },
+    { x: -0.3, y: 0.2, r: 0.07 },
+    { x: -0.1, y: -0.35, r: 0.06 },
+    { x: 0.35, y: 0.25, r: 0.09 },
+  ];
+  craters.forEach(c => {
+    const cGrad = ctx.createRadialGradient(cx + c.x*radius, cy + c.y*radius, 0, cx + c.x*radius, cy + c.y*radius, c.r*radius);
+    cGrad.addColorStop(0, "rgba(0,0,0,0.35)");
+    cGrad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.beginPath();
+    ctx.arc(cx + c.x*radius, cy + c.y*radius, c.r*radius, 0, Math.PI*2);
+    ctx.fillStyle = cGrad;
+    ctx.fill();
+  });
+
+  // Highlight
+  const hlGrad = ctx.createRadialGradient(cx - radius*0.4, cy - radius*0.4, 0, cx - radius*0.4, cy - radius*0.4, radius*0.4);
+  hlGrad.addColorStop(0, "rgba(255,255,255,0.08)");
+  hlGrad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI*2);
+  ctx.fillStyle = hlGrad;
+  ctx.fill();
+
+  // Nodes (ore / crystal)
+  const nodePositions = {
+    "node_left": { angle: Math.PI, dist: 0.82 },
+    "node_top": { angle: -Math.PI/2, dist: 0.82 },
+    "node_right": { angle: 0, dist: 0.82 },
+    "node_far_left": { angle: Math.PI * 0.75, dist: 0.88 },
+    "node_far_right": { angle: Math.PI * 0.25, dist: 0.88 },
+    "node_far_top": { angle: -Math.PI * 0.8, dist: 0.85 },
+    "node_bottom": { angle: Math.PI/2, dist: 0.88 },
+  };
+
+  G.map.nodes.forEach(node => {
+    if (!node.unlocked) return;
+    const pos = nodePositions[node.position_key];
+    if (!pos) return;
+    const nx = cx + Math.cos(pos.angle) * pos.dist * radius;
+    const ny = cy + Math.sin(pos.angle) * pos.dist * radius;
+    const nodeR = node.type === "ore" ? 12 : 10;
+    const color = node.type === "ore" ? "#f4a460" : "#00ced1";
+
+    if (node.active) {
+      ctx.beginPath();
+      ctx.arc(nx, ny, nodeR, 0, Math.PI*2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Glow
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(nx, ny, nodeR, 0, Math.PI*2);
+      ctx.fillStyle = "transparent";
+      ctx.fill();
+      ctx.shadowBlur = 0;
     }
-  } catch(e) { console.error('Rocket launch error:', e); }
-}
+  });
 
-// =============================================================================
-// API CALLS
-// =============================================================================
+  // Sockets
+  const socketPositions = {
+    "upper_left":    { angle: Math.PI * 0.8, dist: 0.6 },
+    "upper_right":   { angle: Math.PI * 0.2, dist: 0.6 },
+    "mid_left":      { angle: Math.PI * 0.95, dist: 0.45 },
+    "mid_right":     { angle: Math.PI * 0.05, dist: 0.45 },
+    "lower_left":    { angle: Math.PI * 1.1, dist: 0.6 },
+    "lower_right":   { angle: Math.PI * -0.1, dist: 0.6 },
+    "far_upper_left":   { angle: Math.PI * 0.9, dist: 0.75 },
+    "far_upper_right":   { angle: Math.PI * 0.1, dist: 0.75 },
+    "far_mid_left":     { angle: Math.PI, dist: 0.3 },
+    "far_mid_right":    { angle: 0, dist: 0.3 },
+    "far_lower_left":   { angle: Math.PI * 1.15, dist: 0.75 },
+    "far_lower_right":   { angle: Math.PI * -0.15, dist: 0.75 },
+  };
 
-async function loadState() {
-  try {
-    const resp = await fetch(API + '/state');
-    G = await resp.json();
-    // Show offline gains
-    if (G.offline_gains && G.offline_gains.total > 0) {
-      const lines = Object.entries(G.offline_gains).filter(([k,v]) => k !== 'total' && v > 0)
-        .map(([k,v]) => `${fmt(v)} ${k}`);
-      document.getElementById('offlineGains').textContent = lines.join(' | ') || 'Nothing earned while away';
-      document.getElementById('offlineToast').style.display = 'block';
-      setTimeout(() => document.getElementById('offlineToast').style.display = 'none', 5000);
-    }
-    updateDisplay();
-  } catch(e) { console.error('Load state error:', e); }
-}
+  G.map.sockets.forEach(socket => {
+    const pos = socketPositions[socket.position_key];
+    if (!pos) return;
+    const sx = cx + Math.cos(pos.angle) * pos.dist * radius;
+    const sy = cy + Math.sin(pos.angle) * pos.dist * radius;
+    const socketR = 16;
 
-async function buyBuilding(id) {
-  try {
-    const resp = await fetch(API + '/buy/building', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ building_id: id }),
-    });
-    const data = await resp.json();
-    if (data.success) {
-      G = data.game_state;
-      updateDisplay();
-      // Card pop animation
-      const card = document.querySelector(`.item-card[data-id="${id}"]`);
-      if (card) { card.classList.add('just-bought'); setTimeout(() => card.classList.remove('just-bought'), 300); }
+    if (socket.occupied) {
+      // Draw placed building icon
+      const bId = socket.building_id;
+      const icon = BUILDING_ICONS[bId] || "🏗️";
+      ctx.font = `${Math.floor(socketR * 1.5)}px serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(icon, sx, sy);
+    } else if (socket.unlocked) {
+      // Empty unlocked socket
+      ctx.beginPath();
+      ctx.arc(sx, sy, socketR, 0, Math.PI*2);
+      ctx.strokeStyle = selectedBuilding ? "rgba(0,212,255,0.8)" : "rgba(255,255,255,0.2)";
+      ctx.lineWidth = selectedBuilding ? 3 : 1;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Store ref for click
+      if (!document.getElementById("sock-" + socket.id)) {
+        const el = document.createElement("div");
+        el.id = "sock-" + socket.id;
+        el.style.cssText = `position:absolute;left:${sx - socketR}px;top:${sy - socketR}px;width:${socketR*2}px;height:${socketR*2}px;border-radius:50%;cursor:pointer;`;
+        el.onclick = () => placeBuilding(socket.id);
+        canvas.parentElement.appendChild(el);
+      }
+      // Update position
+      const el = document.getElementById("sock-" + socket.id);
+      if (el) {
+        el.style.left = (sx - socketR + canvas.offsetLeft) + "px";
+        el.style.top = (sy - socketR + canvas.offsetTop) + "px";
+        el.style.display = selectedBuilding ? "block" : "none";
+      }
     } else {
-      alert(data.message);
+      // Locked socket
+      ctx.beginPath();
+      ctx.arc(sx, sy, socketR, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(30,20,5,0.5)";
+      ctx.fill();
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.fillText("🔒", sx, sy);
     }
-  } catch(e) { console.error('Buy building error:', e); }
+  });
+
+  // Rocket pad (bottom)
+  const padX = cx;
+  const padY = cy + radius * 0.5;
+  const rocketParts = Object.values(G.rocket);
+  const completeParts = rocketParts.filter(p => p.complete).length;
+
+  ctx.font = "14px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = completeParts === 4 ? "#00e676" : (completeParts > 0 ? "#ffd700" : "rgba(255,255,255,0.3)");
+  ctx.fillText(`🚀 ${completeParts}/4`, padX, padY);
+
+  // Tap animation
+  requestAnimationFrame(drawAsteroid);
 }
 
-async function buyResearch(id) {
-  try {
-    const resp = await fetch(API + '/buy/research', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ research_id: id }),
-    });
-    const data = await resp.json();
-    if (data.success) {
-      G = data.game_state;
-      updateDisplay();
-    } else {
-      alert(data.message);
-    }
-  } catch(e) { console.error('Buy research error:', e); }
-}
-
-async function doPrestige() {
-  if (!confirm('Reset all progress for a permanent Dark Matter bonus?')) return;
-  try {
-    const resp = await fetch(API + '/prestige', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({}),
-    });
-    const data = await resp.json();
-    if (data.success) {
-      G = data.game_state;
-      updateDisplay();
-      showToast('⬡ PRESTIGE!', '+' + data.soul_earned + ' Dark Matter earned!');
-    }
-  } catch(e) { console.error('Prestige error:', e); }
-}
-
-async function buyPrestigeUpgrade(id) {
-  try {
-    const resp = await fetch(API + '/buy/prestige-upgrade', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ upgrade_id: id }),
-    });
-    const data = await resp.json();
-    if (data.success) {
-      G = data.game_state;
-      updateDisplay();
-    } else {
-      alert(data.message);
-    }
-  } catch(e) { console.error('Buy prestige upgrade error:', e); }
-}
-
-async function tick() {
-  try {
-    const resp = await fetch(API + '/tick', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({}),
-    });
-    const data = await resp.json();
-    if (data.new_milestones && data.new_milestones.length > 0) {
-      data.new_milestones.forEach(m => showMilestone(m.label + ' (+' + ((m.reward-1)*100).toFixed(0) + '% bonus)'));
-    }
-    G = data.game_state;
-    updateDisplay();
-  } catch(e) { console.error('Tick error:', e); }
-}
+// Building icon map
+const BUILDING_ICONS = {
+  drill_rig: "⛏️",
+  hand_drill_bay: "🔧",
+  solar_array: "☀️",
+  oxygen_recycler: "🫁",
+  refinery: "🏭",
+  survey_scanner: "📡",
+  crystal_harvester: "💎",
+  launch_assembly_bay: "🔩",
+};
 
 // =============================================================================
-// TOASTS
+// CANVAS TAP HANDLING
 // =============================================================================
+document.addEventListener("DOMContentLoaded", () => {
+  initCanvas();
 
-function showToast(title, msg) {
-  const el = document.getElementById('offlineToast');
-  el.querySelector('h4').textContent = title;
-  el.querySelector('p').textContent = msg;
-  el.style.display = 'block';
-  el.style.borderColor = 'var(--accent)';
-  el.querySelector('h4').style.color = 'var(--accent)';
-  setTimeout(() => { el.style.display = 'none'; }, 4000);
+  const wrapper = document.getElementById("asteroid-wrapper");
+  wrapper.addEventListener("click", e => {
+    if (!G || G.status !== "playing") return;
+    const rect = wrapper.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    // Find nearest node and tap it
+    const W = canvas.width, H = canvas.height;
+    const cx = W/2, cy = H/2, radius = Math.min(W,H)*0.42;
+
+    const nodePositions = {
+      "node_left": { angle: Math.PI, dist: 0.82 },
+      "node_top": { angle: -Math.PI/2, dist: 0.82 },
+      "node_right": { angle: 0, dist: 0.82 },
+      "node_far_left": { angle: Math.PI * 0.75, dist: 0.88 },
+      "node_far_right": { angle: Math.PI * 0.25, dist: 0.88 },
+      "node_far_top": { angle: -Math.PI * 0.8, dist: 0.85 },
+      "node_bottom": { angle: Math.PI/2, dist: 0.88 },
+    };
+
+    let closest = null;
+    let minDist = 40; // tap radius
+
+    G.map.nodes.forEach(node => {
+      if (!node.unlocked || !node.active) return;
+      const pos = nodePositions[node.position_key];
+      if (!pos) return;
+      const nx = cx + Math.cos(pos.angle) * pos.dist * radius;
+      const ny = cy + Math.sin(pos.angle) * pos.dist * radius;
+      const d = Math.hypot(x - nx, y - ny);
+      if (d < minDist) {
+        minDist = d;
+        closest = node;
+      }
+    });
+
+    if (closest) {
+      doTap(closest.id);
+    }
+  });
+});
+
+// =============================================================================
+// UI HELPERS
+// =============================================================================
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll(".tab-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.tab === tab);
+  });
+  document.querySelectorAll(".sidebar-panel").forEach(p => {
+    p.classList.toggle("active", p.id === "tab-" + tab);
+  });
 }
 
-function showMilestone(label) {
-  const toast = document.getElementById('milestoneToast');
-  document.getElementById('milestoneLabel').textContent = label;
-  toast.style.display = 'block';
-  setTimeout(() => { toast.style.display = 'none'; }, 4000);
+function toggleSidebar() {
+  const sb = document.getElementById("sidebar");
+  sb.classList.toggle("open");
 }
 
-function showSaving() {
-  const el = document.getElementById('saveStatus');
-  el.textContent = 'Saving...';
-  el.classList.add('saving');
-  clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(() => {
-    el.textContent = 'Saved ✓';
-    el.classList.remove('saving');
-  }, 1000);
+function fmt(n) {
+  if (n === undefined || n === null || isNaN(n)) return "0";
+  if (n < 1000) return n.toFixed(n < 10 ? 1 : 0);
+  if (n < 1e6) return (n/1000).toFixed(1) + "K";
+  if (n < 1e9) return (n/1e6).toFixed(1) + "M";
+  return (n/1e9).toFixed(1) + "B";
 }
 
-let saveTimeout;
+function formatEffect(key, value) {
+  const map = {
+    ore_per_second: `+${value}/s ore`,
+    power_per_second: `+${value}/s power`,
+    alloy_per_second: `+${value}/s alloy`,
+    crystal_per_second: `+${value}/s crystal`,
+    ore_per_tap: `+${value} ore/tap`,
+    oxygen_drain_flat: `${value > 0 ? '+' : ''}${value}/s O2 drain`,
+    unlock_sockets: `+${value} sockets`,
+    reveal_crystal_nodes: `+${value} crystal node`,
+    enable_rocket_assembly: "Enables rocket build",
+  };
+  return map[key] || `${key}: ${value}`;
+}
+
+function canAfford(resources, cost) {
+  if (!cost) return true;
+  return Object.entries(cost).every(([res, amt]) => (resources[res] || 0) >= amt);
+}
+
+function spawnTapEffect(gained) {
+  const wrapper = document.getElementById("asteroid-wrapper");
+  if (!wrapper) return;
+  const el = document.createElement("div");
+  el.className = "float-ore";
+  el.textContent = `+${fmt(gained)}`;
+  el.style.left = (wrapper.clientWidth / 2 + (Math.random()-0.5)*60) + "px";
+  el.style.top = (wrapper.clientHeight / 2) + "px";
+  wrapper.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+function showAlert(msg, type="info") {
+  const el = document.getElementById("alerts");
+  const a = document.createElement("div");
+  a.className = `alert alert-${type}`;
+  a.textContent = msg;
+  el.appendChild(a);
+  setTimeout(() => a.remove(), 3000);
+}
+
+function showNarrative(key) {
+  const MESSAGES = {
+    run_start: "Oxygen failing. This is your last window.",
+    first_building: "Good. Keep building.",
+    first_oxygen_building: "Life support stabilized… for now.",
+    first_rocket_tab: "Get that ship ready.",
+    oxygen_25: "⚠️ Warning: oxygen reserves critical.",
+    oxygen_10: "🚨 Launch now.",
+    rocket_complete: "Trajectory window locked. Go.",
+    victory: "You made it home.",
+  };
+  const msg = MESSAGES[key];
+  if (!msg) return;
+  const feed = document.getElementById("message-feed");
+  const el = document.createElement("div");
+  el.className = "narrative-msg";
+  el.textContent = msg;
+  feed.appendChild(el);
+  setTimeout(() => el.style.opacity = "0", 4000);
+  setTimeout(() => el.remove(), 5000);
+}
+
+function showTapHint() {
+  const hint = document.getElementById("tap-hint");
+  if (!hint) return;
+  setTimeout(() => { hint.style.opacity = "0"; }, 4000);
+  setTimeout(() => hint.remove(), 5000);
+}
+
+function showFailureScreen() {
+  const el = document.getElementById("overlay-failure");
+  const stats = document.getElementById("failure-stats");
+  if (!G) return;
+  const minutes = Math.floor(G.elapsed_seconds / 60);
+  const seconds = Math.floor(G.elapsed_seconds % 60);
+  const rocketPct = (Object.values(G.rocket).filter(p=>p.complete).length / 4 * 100).toFixed(0);
+  stats.innerHTML = `
+    <div>Time survived: ${minutes}:${seconds.toString().padStart(2,'0')}</div>
+    <div>Rocket completion: ${rocketPct}%</div>
+    <div>Buildings placed: ${Object.values(G.buildings_placed).reduce((a,b)=>a+b,0)}</div>
+    <div>Tech researched: ${G.tech_unlocked.length}</div>
+  `;
+  el.style.display = "flex";
+}
+
+function showVictoryScreen() {
+  const el = document.getElementById("overlay-victory");
+  const stats = document.getElementById("victory-stats");
+  if (!G) return;
+  const minutes = Math.floor(G.elapsed_seconds / 60);
+  const seconds = Math.floor(G.elapsed_seconds % 60);
+  stats.innerHTML = `
+    <div>Escape time: ${minutes}:${seconds.toString().padStart(2,'0')}</div>
+    <div>Buildings placed: ${Object.values(G.buildings_placed).reduce((a,b)=>a+b,0)}</div>
+    <div>Total taps: ${G.telemetry.total_taps}</div>
+  `;
+  el.style.display = "flex";
+}
+
+function hideOverlay() {
+  document.getElementById("overlay-failure").style.display = "none";
+  document.getElementById("overlay-victory").style.display = "none";
+}
+
+<!-- =============================================================================
+// DATA DEFINITIONS (injected from Python config via Jinja2)
+// =============================================================================
+const BUILDINGS_DEF = {{ buildings_json | safe }};
+const TECHS_DEF = {{ techs_json | safe }};
+const ROCKET_PARTS_DEF = {{ rocket_json | safe }};
 
 // =============================================================================
 // INIT
 // =============================================================================
-
-document.getElementById('asteroid').addEventListener('click', tap);
-loadState();
-
-setInterval(() => {
-  tick();
-  showSaving();
-}, 5000);
-
-setInterval(() => {
-  if (G) {
-    const elapsed = 1;
-    const rps = G.rps;
-    Object.keys(rps).forEach(r => {
-      if (G.resources[r]) {
-        G.resources[r].value += rps[r] * elapsed;
-      }
-    });
-    updateDisplay();
-  }
-}, 1000);
-
-// Stars
-const canvas = document.getElementById('starCanvas');
-const ctx = canvas.getContext('2d');
-let stars = [];
-function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-function initStars() {
-  resizeCanvas();
-  stars = Array.from({length: 250}, () => ({
-    x: Math.random() * canvas.width,
-    y: Math.random() * canvas.height,
-    r: Math.random() * 1.5 + 0.3,
-    speed: Math.random() * 0.3 + 0.05,
-    opacity: Math.random() * 0.6 + 0.2,
-  }));
-}
-function drawStars() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  stars.forEach(s => {
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255,255,255,${s.opacity})`;
-    ctx.fill();
-    s.y -= s.speed;
-    if (s.y < 0) { s.y = canvas.height; s.x = Math.random() * canvas.width; }
-  });
-  requestAnimationFrame(drawStars);
-}
-initStars();
-drawStars();
-window.addEventListener('resize', initStars);
+window._shownMessages = new Set();
 </script>
+
+</div><!-- end app-layout -->
+
 </body>
 </html>

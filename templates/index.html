@@ -1,45 +1,29 @@
-{% extends "base.html" %}
-{% block title %}Stellar Drift — Mine the Galaxy{% endblock %}
-{% block content %}
-<div class="container">
-  <div class="hero">
-    <h1>Stellar Drift</h1>
-    <p>Mine asteroids. Build an empire. Explore the galaxy. The most satisfying idle game in the universe.</p>
-    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-      <a href="/register" class="btn">Start Mining Free</a>
-      <a href="/login" class="btn btn-ghost">Continue Journey</a>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stellar Drift v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/game.css">
+</head>
+<body>
+<div class="landing">
+  <div class="landing-inner">
+    <div class="landing-logo">⛏️ STELLAR DRIFT</div>
+    <h1>Last Shift on a Dying Rock</h1>
+    <p class="landing-tagline">Build &middot; Survive &middot; Escape</p>
+    <div class="landing-desc">
+      Oxygen is failing. The asteroid still has enough minerals to build an escape rocket.<br>
+      You have one chance. How you use it is up to you.
     </div>
-
-    <div class="features">
-      <div class="feature">
-        <div class="feature-icon" style="background: rgba(244,164,96,0.2);">⛏️</div>
-        <div>
-          <h3>Tap &amp; Mine</h3>
-          <p>Mine ore from asteroids with satisfying taps</p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon" style="background: rgba(147,112,219,0.2);">🔬</div>
-        <div>
-          <h3>Research Tech</h3>
-          <p>Unlock new buildings and abilities</p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon" style="background: rgba(0,206,209,0.2);">🚀</div>
-        <div>
-          <h3>Build Fleet</h3>
-          <p>Automate production across the galaxy</p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon" style="background: rgba(139,0,0,0.2);">♻️</div>
-        <div>
-          <h3>Prestige</h3>
-          <p>Reset for permanent dark matter bonuses</p>
-        </div>
-      </div>
+    <div class="landing-openings">
+      <div class="opening-line">&ldquo;Come back alive.&rdquo;</div>
     </div>
+    <button class="btn-play" onclick="location.href='/game'">&#9654; Start Run</button>
+    <div class="landing-tip">No account needed &mdash; play instantly.</div>
   </div>
 </div>
-{% endblock %}
+</body>
+</html>
