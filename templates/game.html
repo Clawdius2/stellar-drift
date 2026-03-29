@@ -795,6 +795,7 @@ function updateObjectives() {
 // =============================================================================
 let canvas, ctx;
 let animFrame;
+let _animTime = 0; // global time counter for building animations
 
 function initCanvas() {
   canvas = document.getElementById('asteroid-canvas');
@@ -818,6 +819,7 @@ function updateAsteroid() {
 
 function drawAsteroid() {
   if (!G || !ctx) return;
+  _animTime = Date.now() / 1000; // sync all building animations
   const W = canvas.width;
   const H = canvas.height;
   const cx = W / 2;
@@ -957,33 +959,26 @@ function drawAsteroid() {
     const socketR = 16;
 
     if (socket.occupied) {
-      // Building — draw with category color ring
       const bId = socket.building_id;
-      const b = BUILDINGS_DEF[bId] || {};
-      const cat = b.category || 'advanced';
-      const catColor = {
-        extraction: "#f97316", sustainment: "#00d4ff", industrial: "#a855f7",
-        advanced: "#00ced1", escape: "#ef4444", expansion: "#ffd700",
-      }[cat] || "#00d4ff";
+      const isSel = isSelected(socket);
+      // Count-based scale: first building is 1.0, each additional same building adds +0.08
+      const placed = G ? (G.buildings_placed[bId] || 1) : 1;
+      const countScale = 1.0 + (placed - 1) * 0.07;
+      const animTime = _animTime + (socket.id.charCodeAt(1) || 0) * 0.5;
 
-      // Glow ring
+      // Glow ring behind building
       ctx.beginPath();
-      ctx.arc(sx, sy, socketR + 3, 0, Math.PI*2);
-      ctx.strokeStyle = catColor;
-      ctx.lineWidth = 2;
-      ctx.shadowColor = catColor;
-      ctx.shadowBlur = isSelected(socket) ? 12 : 6;
+      ctx.arc(sx, sy, 20, 0, Math.PI*2);
+      ctx.strokeStyle = isSel ? "rgba(0,212,255,0.7)" : "rgba(255,255,255,0.1)";
+      ctx.lineWidth = isSel ? 2 : 1;
+      if (isSel) { ctx.shadowColor = "#00d4ff"; ctx.shadowBlur = 10; }
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Icon
-      const icon = BUILDING_ICONS[bId] || "🏗️";
-      ctx.font = "24px serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(icon, sx, sy);
+      // Draw building silhouette
+      drawBuilding(ctx, bId, sx, sy, countScale, animTime, isSel);
 
-      // Store click target for building selection
+      // Store click target
       if (!document.getElementById("sock-" + socket.id)) {
         const el = document.createElement("div");
         el.id = "sock-" + socket.id;
@@ -1059,19 +1054,388 @@ function drawAsteroid() {
     }
   });
 
-  // Rocket pad indicator
+  // Rocket pad — now a proper canvas visualization
   const padX = cx;
   const padY = cy + radius * 0.5;
   const rocketParts = Object.values(G.rocket);
   const completeParts = rocketParts.filter(p => p.complete).length;
-
-  ctx.font = "14px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = completeParts === 4 ? "#00e676" : (completeParts > 0 ? "#ffd700" : "rgba(255,255,255,0.3)");
-  ctx.fillText(`🚀 ${completeParts}/4`, padX, padY);
+  drawRocketPad(ctx, padX, padY, radius, completeParts);
 
   requestAnimationFrame(drawAsteroid);
+}
+
+// =============================================================================
+// BUILDING SILHOUETTES — Phase 3
+// Each building draws itself with canvas primitives.
+// scale: 1.0 = base size, grows with count/tier.
+// time: animation time in seconds.
+// =============================================================================
+function drawBuilding(ctx, buildingId, sx, sy, scale, time, isSelected) {
+  const s = scale || 1.0;
+  const pulse = Math.sin(time * 2.5) * 0.5 + 0.5; // 0-1 breathing
+
+  // Color palette per category
+  const cat = (BUILDINGS_DEF[buildingId]?.category) || 'advanced';
+  const COLORS = {
+    extraction:  { main: '#d97706', accent: '#fbbf24', glow: 'rgba(249,115,22,0.4)' },
+    sustainment: { main: '#0891b2', accent: '#22d3ee', glow: 'rgba(34,211,238,0.4)' },
+    industrial:  { main: '#7c3aed', accent: '#c4b5fd', glow: 'rgba(124,58,237,0.4)' },
+    advanced:    { main: '#0e7490', accent: '#67e8f9', glow: 'rgba(14,116,144,0.4)' },
+    escape:      { main: '#dc2626', accent: '#fca5a5', glow: 'rgba(220,38,38,0.4)' },
+    expansion:   { main: '#d97706', accent: '#fde68a', glow: 'rgba(217,119,6,0.4)' },
+  };
+  const C = COLORS[cat] || COLORS.advanced;
+
+  const stroke = (col, lw) => { ctx.strokeStyle = col; ctx.lineWidth = lw || 1.5; };
+  const fill = (col) => { ctx.fillStyle = col; };
+
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.scale(s, s);
+
+  switch (buildingId) {
+
+    case 'drill_rig': {
+      // Vertical mast with rotating drill head + piston motion
+      const drillY = -14 + Math.sin(time * 3) * 2; // bobbing drill
+      // Base platform
+      ctx.beginPath();
+      ctx.rect(-14, 6, 28, 6);
+      fill('#374151'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Support legs
+      ctx.beginPath(); ctx.moveTo(-10, 6); ctx.lineTo(-14, 18); ctx.lineTo(-6, 18); ctx.lineTo(-8, 6);
+      ctx.moveTo(10, 6); ctx.lineTo(14, 18); ctx.lineTo(6, 18); ctx.lineTo(8, 6);
+      fill('#1f2937'); ctx.fill(); stroke(C.main, 1); ctx.stroke();
+      // Vertical mast
+      ctx.beginPath(); ctx.rect(-4, -18, 8, 26); fill('#374151'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Cross brace
+      ctx.beginPath(); ctx.moveTo(-4, -8); ctx.lineTo(4, -2); ctx.moveTo(4, -8); ctx.lineTo(-4, -2);
+      stroke(C.main, 1); ctx.stroke();
+      // Top mount
+      ctx.beginPath(); ctx.arc(0, -18, 5, 0, Math.PI*2); fill(C.main); ctx.fill();
+      // Drill head (bobbing)
+      ctx.beginPath();
+      ctx.moveTo(0, -14); ctx.lineTo(-5, drillY + 8); ctx.lineTo(5, drillY + 8); ctx.closePath();
+      fill(C.main); ctx.fill();
+      // Drill spiral lines
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const y = drillY + 4 + i * 4;
+        ctx.moveTo(-4 + i, y); ctx.lineTo(4 - i, y + 2);
+      }
+      stroke(C.accent, 1); ctx.stroke();
+      // Glow when selected
+      if (isSelected) {
+        ctx.shadowColor = C.glow; ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI*2);
+        ctx.strokeStyle = C.main; ctx.lineWidth = 2; ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      break;
+    }
+
+    case 'solar_array': {
+      // Flat angular panels with subtle glint animation
+      const glint = Math.sin(time * 1.2) * 0.5 + 0.5;
+      // Panel body (angled rectangle)
+      ctx.save();
+      ctx.rotate(-0.2);
+      ctx.beginPath(); ctx.rect(-20, -10, 40, 20);
+      fill('#1e3a5f'); ctx.fill();
+      stroke('#2563eb', 2); ctx.stroke();
+      // Panel grid lines
+      ctx.beginPath();
+      ctx.moveTo(-7, -10); ctx.lineTo(-7, 10);
+      ctx.moveTo(7, -10); ctx.lineTo(7, 10);
+      ctx.moveTo(-20, 0); ctx.lineTo(20, 0);
+      stroke('#3b82f6', 0.8); ctx.lineWidth = 0.8; ctx.stroke();
+      // Glint highlight
+      ctx.beginPath(); ctx.rect(-18, -8, 6 + glint * 4, 3);
+      fill(`rgba(96,165,250,${0.2 + glint * 0.3})`); ctx.fill();
+      ctx.restore();
+      // Stand
+      ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, 18);
+      stroke(C.main, 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-6, 18); ctx.lineTo(6, 18);
+      stroke(C.main, 1.5); ctx.stroke();
+      // Glow
+      if (isSelected) {
+        ctx.shadowColor = C.glow; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.arc(0, 2, 22, 0, Math.PI*2);
+        ctx.strokeStyle = C.main; ctx.lineWidth = 2; ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      break;
+    }
+
+    case 'oxygen_recycler': {
+      // Filtration unit: cylindrical tank, fan vents, pulsing glow
+      const fanAngle = time * 4;
+      // Main tank
+      ctx.beginPath(); ctx.ellipse(0, 4, 13, 8, 0, 0, Math.PI*2);
+      fill('#1f2937'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0, -2, 13, 8, 0, 0, Math.PI*2);
+      fill('#374151'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Tank body
+      ctx.beginPath(); ctx.rect(-13, -2, 26, 8);
+      fill('#374151'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Top vent cap
+      ctx.beginPath(); ctx.rect(-5, -10, 10, 8); fill('#1f2937'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Fan grill lines (rotating visual)
+      ctx.save(); ctx.translate(0, 4);
+      for (let i = 0; i < 4; i++) {
+        ctx.save(); ctx.rotate(fanAngle + i * Math.PI/2);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(8, 0);
+        stroke(C.accent, 1.5); ctx.stroke();
+        ctx.restore();
+      }
+      // Pulsing center
+      ctx.beginPath(); ctx.arc(0, 0, 2 + pulse, 0, Math.PI*2);
+      fill(C.accent); ctx.fill();
+      ctx.restore();
+      // Intake pipe
+      ctx.beginPath(); ctx.moveTo(-13, 4); ctx.lineTo(-20, 4); ctx.lineTo(-20, 0);
+      stroke(C.main, 1.5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(13, 4); ctx.lineTo(20, 4); ctx.lineTo(20, 8);
+      stroke(C.main, 1.5); ctx.stroke();
+      if (isSelected) {
+        ctx.shadowColor = C.glow; ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2);
+        ctx.strokeStyle = C.main; ctx.lineWidth = 2; ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      break;
+    }
+
+    case 'refinery': {
+      // Bulk processor: large chamber body + exhaust + chamber glow
+      const chamberGlow = 0.3 + pulse * 0.7;
+      // Base
+      ctx.beginPath(); ctx.rect(-18, 10, 36, 6); fill('#1f2937'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Main body
+      ctx.beginPath(); ctx.rect(-15, -12, 30, 24); fill('#374151'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Chamber window (glowing)
+      ctx.beginPath(); ctx.rect(-8, -6, 16, 12);
+      fill(`rgba(167,139,250,${chamberGlow * 0.5})`); ctx.fill();
+      stroke(C.accent, 1); ctx.stroke();
+      // Chamber glow lines
+      for (let i = 0; i < 3; i++) {
+        const y = -4 + i * 4;
+        ctx.beginPath(); ctx.moveTo(-6, y); ctx.lineTo(6, y);
+        stroke(`rgba(196,181,253,${chamberGlow})`, 0.8); ctx.lineWidth = 1; ctx.stroke();
+      }
+      // Top chimney
+      ctx.beginPath(); ctx.rect(-4, -20, 8, 10); fill('#4b5563'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Exhaust puff (animated)
+      const puffY = -22 - pulse * 4;
+      ctx.beginPath(); ctx.arc(0, puffY, 3, 0, Math.PI*2);
+      fill(`rgba(167,139,250,${0.6 - pulse * 0.3})`); ctx.fill();
+      // Side pipes
+      ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(-22, 0); ctx.lineTo(-22, 6);
+      stroke(C.main, 1.5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(22, 0); ctx.lineTo(22, -4);
+      stroke(C.main, 1.5); ctx.stroke();
+      if (isSelected) {
+        ctx.shadowColor = C.glow; ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI*2);
+        ctx.strokeStyle = C.main; ctx.lineWidth = 2; ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      break;
+    }
+
+    case 'survey_scanner': {
+      // Radar dish on mast with rotating scan sweep
+      const sweep = time * 2; // sweep angle
+      // Mast
+      ctx.beginPath(); ctx.rect(-2, 0, 4, 18); fill('#374151'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Base plate
+      ctx.beginPath(); ctx.rect(-10, 16, 20, 4); fill('#1f2937'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Dish arm
+      ctx.save(); ctx.translate(0, 0); ctx.rotate(-0.5);
+      ctx.beginPath(); ctx.rect(-1.5, -14, 3, 14); fill('#4b5563'); ctx.fill(); stroke(C.main, 1); ctx.stroke();
+      // Dish
+      ctx.beginPath(); ctx.ellipse(0, -16, 12, 5, 0, 0, Math.PI*2);
+      fill('#1f2937'); ctx.fill(); stroke(C.main, 2); ctx.stroke();
+      // Feed horn
+      ctx.beginPath(); ctx.arc(0, -16, 2, 0, Math.PI*2); fill(C.accent); ctx.fill();
+      ctx.restore();
+      // Scan sweep ring
+      ctx.save(); ctx.translate(0, 0);
+      ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(253,230,138,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+      // Sweep line
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(sweep) * 18, Math.sin(sweep) * 18);
+      stroke(`rgba(253,230,138,${0.4 + pulse * 0.4)`, 1.5); ctx.stroke();
+      ctx.restore();
+      if (isSelected) {
+        ctx.shadowColor = C.glow; ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2);
+        ctx.strokeStyle = C.main; ctx.lineWidth = 2; ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      break;
+    }
+
+    case 'crystal_harvester': {
+      // Articulated arm + containment frame + crystal glow
+      const armAngle = Math.sin(time * 1.5) * 0.3; // swaying arm
+      // Base
+      ctx.beginPath(); ctx.rect(-14, 10, 28, 5); fill('#1f2937'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Vertical post
+      ctx.beginPath(); ctx.rect(-3, -8, 6, 20); fill('#374151'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Arm (articulated)
+      ctx.save(); ctx.translate(0, -8); ctx.rotate(armAngle);
+      ctx.beginPath(); ctx.rect(-2, -16, 4, 16); fill('#4b5563'); ctx.fill(); stroke(C.main, 1); ctx.stroke();
+      // Harvesting head
+      ctx.save(); ctx.translate(0, -16); ctx.rotate(armAngle * -0.5);
+      ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2);
+      fill(C.accent, 0.3); ctx.fill(); stroke(C.accent, 1.5); ctx.stroke();
+      // Crystal shard inside
+      ctx.beginPath();
+      ctx.moveTo(0, -4); ctx.lineTo(-2, 2); ctx.lineTo(2, 2); ctx.closePath();
+      fill(C.accent); ctx.fill();
+      ctx.restore();
+      ctx.restore();
+      // Containment frame arc
+      ctx.save(); ctx.translate(0, 0);
+      ctx.beginPath(); ctx.arc(0, -8, 18, Math.PI * 0.65, Math.PI * 1.35);
+      ctx.strokeStyle = C.main; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.restore();
+      if (isSelected) {
+        ctx.shadowColor = C.glow; ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2);
+        ctx.strokeStyle = C.main; ctx.lineWidth = 2; ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      break;
+    }
+
+    case 'launch_assembly_bay': {
+      // Tall gantry structure with rocket shape + flame stub
+      // Gantry legs
+      ctx.beginPath(); ctx.moveTo(-18, 18); ctx.lineTo(-12, -20); ctx.lineTo(-8, -20); ctx.lineTo(-14, 18);
+      fill('#1f2937'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(18, 18); ctx.lineTo(12, -20); ctx.lineTo(8, -20); ctx.lineTo(14, 18);
+      fill('#1f2937'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Cross beam
+      ctx.beginPath(); ctx.rect(-12, -20, 24, 4); fill('#374151'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Rocket body (partial, in gantry)
+      ctx.beginPath(); ctx.rect(-6, -18, 12, 30); fill('#4b5563'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Rocket nose
+      ctx.beginPath();
+      ctx.moveTo(-6, -18); ctx.lineTo(0, -28); ctx.lineTo(6, -18); ctx.closePath();
+      fill(C.main); ctx.fill(); stroke(C.accent, 1.5); ctx.stroke();
+      // Rocket fins
+      ctx.beginPath(); ctx.moveTo(-6, 6); ctx.lineTo(-14, 14); ctx.lineTo(-6, 10);
+      fill(C.main); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(6, 6); ctx.lineTo(14, 14); ctx.lineTo(6, 10);
+      fill(C.main); ctx.fill();
+      // Engine nozzle
+      ctx.beginPath(); ctx.rect(-5, 12, 10, 5); fill('#1f2937'); ctx.fill(); stroke(C.main, 1); ctx.stroke();
+      // Flame stub (idle)
+      ctx.beginPath(); ctx.arc(0, 18, 3 + pulse * 2, 0, Math.PI*2);
+      fill(`rgba(249,115,22,${0.3 + pulse * 0.4})`); ctx.fill();
+      if (isSelected) {
+        ctx.shadowColor = C.glow; ctx.shadowBlur = 16;
+        ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI*2);
+        ctx.strokeStyle = C.main; ctx.lineWidth = 2; ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      break;
+    }
+
+    case 'hand_drill_bay': {
+      // Workstation: bench with manual drill press
+      const pressY = -8 + Math.sin(time * 2) * 2;
+      // Bench
+      ctx.beginPath(); ctx.rect(-16, 8, 32, 7); fill('#374151'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Drill press column
+      ctx.beginPath(); ctx.rect(-3, -16, 6, 24); fill('#4b5563'); ctx.fill(); stroke(C.main, 1.5); ctx.stroke();
+      // Arm (pressing down)
+      ctx.beginPath(); ctx.rect(-12, pressY, 24, 5); fill('#1f2937'); ctx.fill(); stroke(C.main, 1); ctx.stroke();
+      // Drill tip
+      ctx.beginPath(); ctx.moveTo(-2, pressY + 5); ctx.lineTo(2, pressY + 5); ctx.lineTo(0, pressY + 14); ctx.closePath();
+      fill(C.accent); ctx.fill();
+      // Base mount
+      ctx.beginPath(); ctx.rect(-16, 4, 32, 4); fill('#1f2937'); ctx.fill(); stroke(C.main, 1); ctx.stroke();
+      // Work piece on bench
+      ctx.beginPath(); ctx.arc(-8, 6, 3, 0, Math.PI*2); fill(C.main); ctx.fill();
+      if (isSelected) {
+        ctx.shadowColor = C.glow; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI*2);
+        ctx.strokeStyle = C.main; ctx.lineWidth = 2; ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      break;
+    }
+
+    default: {
+      // Fallback: simple building box
+      ctx.beginPath(); ctx.rect(-12, -12, 24, 24);
+      fill('#374151'); ctx.fill(); stroke(C.main, 2); ctx.stroke();
+      ctx.font = "14px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("?", 0, 0);
+    }
+  }
+
+  ctx.restore();
+}
+
+// =============================================================================
+// ROCKET PAD VISUALIZATION
+// =============================================================================
+function drawRocketPad(ctx, cx, cy, radius, completeCount) {
+  const padR = 28;
+  const t = Date.now() / 1000;
+  const pulse = Math.sin(t * 2) * 0.5 + 0.5;
+
+  // Platform
+  ctx.beginPath(); ctx.arc(cx, cy, padR, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(30,41,59,0.8)'; ctx.fill();
+  ctx.strokeStyle = completeCount === 4 ? '#00e676' : (completeCount > 0 ? '#f59e0b' : '#374151');
+  ctx.lineWidth = 2; ctx.stroke();
+
+  // Landing legs
+  const legAngles = [-2.5, -0.6, 0.6, 2.5];
+  legAngles.forEach(a => {
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * 8, cy + Math.sin(a) * 8);
+    ctx.lineTo(cx + Math.cos(a) * padR * 0.85, cy + Math.sin(a) * padR * 0.85);
+    ctx.strokeStyle = completeCount === 4 ? '#00e676' : '#4b5563';
+    ctx.lineWidth = 2; ctx.stroke();
+  });
+
+  if (completeCount > 0) {
+    // Rocket silhouette
+    const rocketH = 20 + completeCount * 4;
+    // Body
+    ctx.beginPath(); ctx.rect(cx - 5, cy - rocketH/2, 10, rocketH);
+    ctx.fillStyle = completeCount === 4 ? '#00e676' : '#6b7280'; ctx.fill();
+    // Nose
+    ctx.beginPath();
+    ctx.moveTo(cx - 5, cy - rocketH/2); ctx.lineTo(cx, cy - rocketH/2 - 8); ctx.lineTo(cx + 5, cy - rocketH/2);
+    ctx.fillStyle = completeCount === 4 ? '#00e676' : '#9ca3af'; ctx.fill();
+    // Fins
+    ctx.beginPath(); ctx.moveTo(cx - 5, cy + rocketH/2 - 6); ctx.lineTo(cx - 12, cy + rocketH/2 + 4); ctx.lineTo(cx - 5, cy + rocketH/2);
+    ctx.fillStyle = completeCount === 4 ? '#00e676' : '#6b7280'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx + 5, cy + rocketH/2 - 6); ctx.lineTo(cx + 12, cy + rocketH/2 + 4); ctx.lineTo(cx + 5, cy + rocketH/2);
+    ctx.fillStyle = completeCount === 4 ? '#00e676' : '#6b7280'; ctx.fill();
+    // Flame when complete
+    if (completeCount === 4) {
+      ctx.beginPath(); ctx.arc(cx, cy + rocketH/2 + 6, 5 + pulse * 3, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(249,115,22,${0.4 + pulse * 0.4})`; ctx.fill();
+    }
+  } else {
+    // Empty pad indicator
+    ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillText("🚀", cx, cy);
+  }
+
+  // Progress text
+  ctx.font = "bold 9px Orbitron, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+  ctx.fillStyle = completeCount === 4 ? '#00e676' : '#9ca3af';
+  ctx.fillText(`${completeCount}/4`, cx, cy + padR + 10);
 }
 
 function selectSocket(socket) {
