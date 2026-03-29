@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Stellar Drift v2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/game.css">
 </head>
@@ -16,50 +17,51 @@
      ZONE A — TOP HUD BAR
      ============================================================ -->
 <header class="hud">
-  <div class="hud-logo">⛏️ STELLAR DRIFT</div>
 
-  <!-- Oxygen — center of HUD, most prominent -->
-  <div class="oxygen-block">
-    <div class="oxygen-label">
-      <span class="oxygen-icon">🫁</span>
-      <span>OXYGEN</span>
-      <span class="oxygen-val" id="oxy-val">100</span>
-      <span class="oxygen-drain" id="oxy-drain">-0.12/s</span>
+  <!-- Left: Logo + O2 -->
+  <div class="hud-left">
+    <div class="hud-logo">STELLAR DRIFT</div>
+    <div class="hud-o2-block">
+      <div class="o2-label">
+        <span class="o2-title">O₂</span>
+        <span class="o2-val" id="oxy-val">100</span>
+        <span class="o2-drain" id="oxy-drain">−0.12/s</span>
+      </div>
+      <div class="o2-bar-outer">
+        <div class="o2-bar-fill" id="oxy-bar"></div>
+      </div>
     </div>
-    <div class="oxygen-bar-outer">
-      <div class="oxygen-bar-fill" id="oxy-bar"></div>
-    </div  >
   </div>
 
-  <!-- Resources -->
-  <div class="resource-strip">
+  <!-- Center: Power balance -->
+  <div class="hud-center">
+    <div class="power-block" id="power-block">
+      <span class="power-icon">⚡</span>
+      <span class="power-val" id="power-val">0</span>
+      <span class="power-sep">/</span>
+      <span class="power-demand" id="power-demand">0</span>
+      <span class="power-unit">kW</span>
+      <span class="power-warn" id="power-warn" style="display:none">⚠️ DEFICIT</span>
+    </div>
+  </div>
+
+  <!-- Right: Resources -->
+  <div class="hud-right">
     <div class="res-item" id="res-ore">
-      <span class="res-icon">�ite</span>
-      <span class="res-name">Ore</span>
       <span class="res-val" id="ore-val">0</span>
+      <span class="res-name">ORE</span>
       <span class="res-rate" id="ore-rate">+0/s</span>
     </div>
-    <div class="res-item" id="res-power">
-      <span class="res-icon">⚡</span>
-      <span class="res-name">Power</span>
-      <span class="res-val" id="power-val">0</span>
-      <span class="res-rate" id="power-rate">+0/s</span>
-    </div>
     <div class="res-item" id="res-alloy">
-      <span class="res-icon">🔩</span>
-      <span class="res-name">Alloy</span>
       <span class="res-val" id="alloy-val">0</span>
+      <span class="res-name">ALLOY</span>
       <span class="res-rate" id="alloy-rate">+0/s</span>
     </div>
     <div class="res-item" id="res-crystal">
-      <span class="res-icon">💎</span>
-      <span class="res-name">Crystal</span>
       <span class="res-val" id="crystal-val">0</span>
+      <span class="res-name">CRYSTAL</span>
       <span class="res-rate" id="crystal-rate">+0/s</span>
     </div>
-  </div>
-
-  <div class="hud-right">
     <button class="btn-icon" onclick="newRun()" title="New Run">↺</button>
   </div>
 </header>
@@ -69,23 +71,43 @@
      ============================================================ -->
 <main class="asteroid-zone" id="asteroid-zone">
 
-  <!-- Narrative messages -->
-  <div class="message-feed" id="message-feed">
-    <div class="home-icon" id="home-icon">🏠</div>
-  </div>
+  <!-- Narrative messages — top left -->
+  <div class="message-feed" id="message-feed"></div>
 
   <!-- Asteroid canvas -->
   <div class="asteroid-wrapper" id="asteroid-wrapper">
     <canvas id="asteroid-canvas"></canvas>
   </div>
 
-  <!-- Floating alerts -->
+  <!-- Floating alerts — center -->
   <div id="alerts"></div>
+
+  <!-- Objective / alert strip — bottom left -->
+  <div class="objectives-strip" id="objectives-strip">
+    <div class="obj-bottleneck" id="obj-bottleneck"></div>
+  </div>
+
+  <!-- Mode toolbar — bottom center -->
+  <div class="mode-toolbar" id="mode-toolbar">
+    <button class="mode-btn active" id="mode-btn-build" onclick="setMode('build')">
+      <span class="mode-icon">🏗</span>
+      <span>Build</span>
+    </button>
+    <button class="mode-btn" id="mode-btn-research" onclick="setMode('research')">
+      <span class="mode-icon">🔬</span>
+      <span>Research</span>
+    </button>
+    <button class="mode-btn" id="mode-btn-rocket" onclick="setMode('rocket')">
+      <span class="mode-icon">🚀</span>
+      <span>Rocket</span>
+    </button>
+  </div>
 
   <!-- Overlay screens -->
   <div class="overlay" id="overlay-failure" style="display:none">
     <div class="overlay-card">
-      <h2>💀 OUT OF OXYGEN</h2>
+      <h2>COLONY LOST</h2>
+      <p>Oxygen depleted. The asteroid reclaims what was borrowed.</p>
       <div id="failure-stats"></div>
       <button class="btn-primary" onclick="newRun()">Try Again</button>
     </div>
@@ -93,7 +115,7 @@
 
   <div class="overlay" id="overlay-victory" style="display:none">
     <div class="overlay-card victory">
-      <h2>🚀 ESCAPE SUCCESSFUL</h2>
+      <h2>ESCAPE SUCCESSFUL</h2>
       <p>"You made it home."</p>
       <div id="victory-stats"></div>
       <button class="btn-primary" onclick="newRun()">Play Again</button>
@@ -103,71 +125,80 @@
 </main>
 
 <!-- ============================================================
-     ZONE C — RIGHT SIDEBAR (desktop) / BOTTOM DRAWER (mobile)
+     ZONE C — RIGHT CONTEXT PANEL
      ============================================================ -->
-<aside class="sidebar" id="sidebar">
+<aside class="context-panel" id="context-panel">
 
-  <!-- Tab buttons -->
-  <div class="sidebar-tabs">
-    <button class="tab-btn active" data-tab="build" onclick="switchTab('build')">🔨 Build</button>
-    <button class="tab-btn" data-tab="research" onclick="switchTab('research')">🔬 Research</button>
-    <button class="tab-btn" data-tab="rocket" onclick="switchTab('rocket')">🚀 Rocket</button>
-    <button class="tab-btn" data-tab="status" onclick="switchTab('status')">📊 Status</button>
+  <!-- Panel header — always shows current mode + selection -->
+  <div class="panel-header" id="panel-header">
+    <div class="panel-title" id="panel-title">Build</div>
+    <div class="panel-subtitle" id="panel-subtitle">Select a socket on the asteroid</div>
   </div>
 
-  <!-- BUILD TAB -->
-  <div class="sidebar-panel active" id="tab-build">
-    <div class="panel-section-title">Available Buildings</div>
-    <div id="buildings-list"></div>
-    <div id="placement-hint" class="placement-hint" style="display:none">
-      Tap a glowing socket on the asteroid to place.
+  <!-- Dynamic panel content -->
+  <div class="panel-body" id="panel-body">
+
+    <!-- BUILD MODE (default) -->
+    <div class="panel-section" id="panel-section-build">
+      <div class="panel-section-title">Available Buildings</div>
+      <div id="buildings-list"></div>
+      <div id="placement-hint" class="placement-hint" style="display:none">
+        Tap a glowing socket on the asteroid to place.
+      </div>
     </div>
+
+    <!-- RESEARCH MODE -->
+    <div class="panel-section" id="panel-section-research" style="display:none">
+      <div class="panel-section-title">Tech Tree</div>
+      <div id="tech-list"></div>
+    </div>
+
+    <!-- ROCKET MODE -->
+    <div class="panel-section" id="panel-section-rocket" style="display:none">
+      <div class="panel-section-title">Escape Rocket</div>
+      <div id="rocket-parts"></div>
+      <div id="rocket-launch-btn-area"></div>
+    </div>
+
+    <!-- BUILDING DETAIL (shown when socket/building selected) -->
+    <div class="panel-section" id="panel-section-detail" style="display:none">
+      <div id="detail-content"></div>
+      <button class="btn-ghost" onclick="deselect()">← Back</button>
+    </div>
+
+    <!-- IDLE STATE (no selection, no mode specific) -->
+    <div class="panel-idle" id="panel-idle">
+      <div class="idle-label">Recommended</div>
+      <div id="idle-recommendation"></div>
+    </div>
+
   </div>
 
-  <!-- RESEARCH TAB -->
-  <div class="sidebar-panel" id="tab-research">
-    <div class="panel-section-title">Tech Tree</div>
-    <div id="tech-list"></div>
-  </div>
-
-  <!-- ROCKET TAB -->
-  <div class="sidebar-panel" id="tab-rocket">
-    <div class="panel-section-title">Escape Rocket</div>
-    <div id="rocket-parts"></div>
-    <div id="rocket-launch-btn-area"></div>
-  </div>
-
-  <!-- STATUS TAB -->
-  <div class="sidebar-panel" id="tab-status">
-    <div class="panel-section-title">Mission Status</div>
-    <div id="status-content"></div>
+  <!-- Status strip at panel bottom -->
+  <div class="panel-status" id="panel-status">
+    <div class="status-row-sm"><span>Time</span><span id="stat-time">0:00</span></div>
+    <div class="status-row-sm"><span>Buildings</span><span id="stat-buildings">0</span></div>
+    <div class="status-row-sm"><span>Techs</span><span id="stat-techs">0</span></div>
+    <div class="status-row-sm"><span>Rocket</span><span id="stat-rocket">0/4</span></div>
   </div>
 
 </aside>
-
-<!-- Mobile: show/hide sidebar toggle -->
-<button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">📋</button>
-
-  <!-- Tap hint -->
-<div class="tap-hint-overlay" id="tap-hint">
-  Tap ore nodes on the asteroid to mine
-</div>
 
 <!-- Locked socket tooltip -->
 <div id="locked-socket-tooltip" style="
   display: none;
   position: fixed;
-  background: rgba(15,25,45,0.95);
-  border: 1px solid var(--accent, #00d4ff);
+  background: rgba(15,25,45,0.97);
+  border: 1px solid #00d4ff;
   color: #e8eaf6;
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.7rem;
   z-index: 1000;
   pointer-events: none;
-  max-width: 180px;
-  line-height: 1.4;
-  box-shadow: 0 4px 20px rgba(0,212,255,0.2);
+  max-width: 200px;
+  line-height: 1.5;
+  box-shadow: 0 4px 20px rgba(0,212,255,0.25);
 "></div>
 
 <!-- Debug panel: only shows when ?debug=1 in URL -->
@@ -177,7 +208,6 @@
   <button onclick="debugTap('N1')" style="margin:4px 2px;padding:4px 8px;background:#1a1;color:#fff;border:none;border-radius:4px;cursor:pointer;">TAP N1</button>
   <button onclick="debugTap('N2')" style="margin:4px 2px;padding:4px 8px;background:#1a1;color:#fff;border:none;border-radius:4px;cursor:pointer;">TAP N2</button>
   <button onclick="debugTap('N3')" style="margin:4px 2px;padding:4px 8px;background:#1a1;color:#fff;border:none;border-radius:4px;cursor:pointer;">TAP N3</button>
-  <button onclick="debugResearch()" style="margin:4px 2px;padding:4px 8px;background:#a11;color:#fff;border:none;border-radius:4px;cursor:pointer;">BUY Efficient Strikes I</button>
 </div>
 
 <!-- ============================================================
@@ -191,14 +221,13 @@
 const socket = io();
 
 // game state
-let G = null;       // full server state
-let myRoom = null;  // socket room id
+let G = null;
+let myRoom = null;
 
 // UI state
-let activeTab = 'build';
-let selectedBuilding = null;  // {id, cost}
-let tapHints = [];
-let tapAnimations = [];
+let activeMode = 'build';      // 'build' | 'research' | 'rocket'
+let selectedSocket = null;       // { id, type: 'empty'|'occupied'|'locked'|'node', ... }
+let selectedBuilding = null;     // { id, socket_id }
 
 // =============================================================================
 // SOCKET EVENTS
@@ -210,16 +239,19 @@ socket.on("connect", () => {
 socket.on("init", (data) => {
   myRoom = data.room;
   G = data.state;
+  activeMode = 'build';
+  selectedSocket = null;
+  selectedBuilding = null;
   renderAll();
   updateAsteroid();
   hideOverlay();
   showTapHint();
+  updateContextPanel();
 });
 
 socket.on("state_update", (data) => {
   const prevStatus = G ? G.status : null;
   const prevOxygen = G ? G.resources.oxygen : 100;
-  console.log("[state_update] received, ore now:", data.state.resources.ore, "tap_result:", data.tap_result);
 
   G = data.state;
 
@@ -231,8 +263,6 @@ socket.on("state_update", (data) => {
   // Handle action feedback
   if (data.action_result && !data.action_result.success) {
     showAlert(data.action_result.message, "warn");
-  } else if (data.action_result && data.action_result.success) {
-    // silent success — state update is enough
   }
 
   // Check status changes
@@ -255,11 +285,37 @@ socket.on("state_update", (data) => {
 
   renderAll();
   updateAsteroid();
+  updateContextPanel();
+  updateObjectives();
 });
 
 socket.on("disconnect", () => {
   console.log("[socket] disconnected");
 });
+
+// =============================================================================
+// MODE SYSTEM — controls what the context panel shows
+// =============================================================================
+function setMode(mode) {
+  activeMode = mode;
+  selectedSocket = null;
+  selectedBuilding = null;
+
+  // Update toolbar buttons
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('mode-btn-' + mode);
+  if (btn) btn.classList.add('active');
+
+  updateContextPanel();
+  updateAsteroid();  // redraw sockets to clear selection
+}
+
+function deselect() {
+  selectedSocket = null;
+  selectedBuilding = null;
+  updateContextPanel();
+  updateAsteroid();
+}
 
 // =============================================================================
 // GAME ACTIONS
@@ -269,7 +325,6 @@ function newRun() {
 }
 
 function doTap(nodeId) {
-  console.log("[doTap] emitting, G.room:", G.room, "socket sid:", socket.id);
   socket.emit("tap", { node_id: nodeId || "N1", room: G.room });
 }
 
@@ -281,7 +336,11 @@ function placeBuilding(socketId) {
   });
   selectedBuilding = null;
   document.getElementById("placement-hint").style.display = "none";
-  document.querySelectorAll(".socket-glow").forEach(el => el.classList.remove("socket-glow"));
+  // Stay in detail view briefly then update
+  setTimeout(() => {
+    updateContextPanel();
+    updateAsteroid();
+  }, 100);
 }
 
 function doResearch(techId) {
@@ -297,71 +356,285 @@ function doLaunch() {
 }
 
 // =============================================================================
-// RENDER
+// CONTEXT PANEL — the heart of Phase 2
+// =============================================================================
+function updateContextPanel() {
+  if (!G) return;
+
+  // Always update status strip
+  const minutes = Math.floor(G.elapsed_seconds / 60);
+  const seconds = Math.floor(G.elapsed_seconds % 60);
+  const statTime = document.getElementById('stat-time');
+  if (statTime) statTime.textContent = `${minutes}:${seconds.toString().padStart(2,'0')}`;
+  const statBuildings = document.getElementById('stat-buildings');
+  if (statBuildings) statBuildings.textContent = Object.values(G.buildings_placed).reduce((a,b)=>a+b,0);
+  const statTechs = document.getElementById('stat-techs');
+  if (statTechs) statTechs.textContent = G.tech_unlocked.length;
+  const statRocket = document.getElementById('stat-rocket');
+  if (statRocket) statRocket.textContent = `${Object.values(G.rocket).filter(p=>p.complete).length}/4`;
+
+  // Panel title reflects mode
+  const panelTitle = document.getElementById('panel-title');
+  const panelSubtitle = document.getElementById('panel-subtitle');
+
+  // Hide all sections first
+  ['build','research','rocket','detail'].forEach(s => {
+    const el = document.getElementById('panel-section-' + s);
+    if (el) el.style.display = 'none';
+  });
+  const idleEl = document.getElementById('panel-idle');
+  if (idleEl) idleEl.style.display = 'none';
+
+  // BUILDING DETAIL has highest priority
+  if (selectedSocket && selectedSocket.type === 'occupied' && selectedSocket.building_id) {
+    panelTitle.textContent = selectedBuilding ? BUILDINGS_DEF[selectedBuilding.id]?.name || 'Building' : 'Building';
+    panelSubtitle.textContent = selectedSocket.position_key;
+    showBuildingDetail(selectedSocket);
+    return;
+  }
+
+  // Show mode-specific content
+  if (activeMode === 'build') {
+    panelTitle.textContent = 'Build';
+    panelSubtitle.textContent = selectedSocket ? `Socket ${selectedSocket.id} selected` : 'Select a socket on the asteroid';
+    document.getElementById('panel-section-build').style.display = 'block';
+    renderBuildings();
+    renderPlacementHint();
+
+    if (!selectedSocket) {
+      // Show idle recommendations below building list
+      const idleEl = document.getElementById('panel-idle');
+      if (idleEl) {
+        idleEl.style.display = 'block';
+        document.getElementById('idle-recommendation').innerHTML = getIdleRecommendation();
+      }
+    }
+  } else if (activeMode === 'research') {
+    panelTitle.textContent = 'Research';
+    panelSubtitle.textContent = 'Choose a technology to unlock';
+    document.getElementById('panel-section-research').style.display = 'block';
+    renderTechs();
+  } else if (activeMode === 'rocket') {
+    panelTitle.textContent = 'Escape Rocket';
+    panelSubtitle.textContent = 'Build parts to complete the rocket';
+    document.getElementById('panel-section-rocket').style.display = 'block';
+    renderRocket();
+  }
+}
+
+function showBuildingDetail(socket) {
+  const section = document.getElementById('panel-section-detail');
+  section.style.display = 'block';
+  const content = document.getElementById('detail-content');
+
+  const bId = socket.building_id;
+  const b = BUILDINGS_DEF[bId];
+  if (!b) { content.innerHTML = '<p class="text-dim">Unknown building</p>'; return; }
+
+  const cat = b.category || 'advanced';
+  const catColor = {
+    extraction: "#f97316", sustainment: "#00d4ff", industrial: "#a855f7",
+    advanced: "#00ced1", escape: "#ef4444", expansion: "#ffd700",
+  }[cat] || "#00d4ff";
+
+  // Count how many of this type are placed
+  const placed = G.buildings_placed[bId] || 0;
+  const maxPerRun = b.max_per_run || '∞';
+  const affordable = canAfford(G.resources, b.cost);
+  const atMax = placed >= (b.max_per_run || 999);
+
+  // Upgrade tier info (for future — currently flat)
+  const hasUpgrade = false; // TODO: wire up upgrade tiers
+
+  content.innerHTML = `
+    <div class="detail-header">
+      <div class="detail-icon" style="color:${catColor}">${BUILDING_ICONS[bId] || '🏗️'}</div>
+      <div>
+        <div class="detail-name">${b.name}</div>
+        <div class="detail-cat" style="color:${catColor}">${b.category?.toUpperCase()} · ${placed}/${maxPerRun} placed</div>
+      </div>
+    </div>
+    <div class="detail-desc">${b.description}</div>
+    <div class="detail-outputs">
+      ${Object.entries(b.effects || {}).filter(([k]) => !['unlock_sockets','reveal_crystal_nodes','enable_rocket_assembly'].includes(k))
+        .map(([k, v]) => `<div class="detail-effect"><span class="effect-dot" style="background:${catColor}"></span>${formatEffect(k, v)}</div>`)
+        .join('')}
+      ${b.oxygen_upkeep ? `<div class="detail-effect danger">🫁 −${b.oxygen_upkeep}/s oxygen</div>` : ''}
+    </div>
+    ${atMax ? '<div class="detail-max">Maximum placed this run</div>' : ''}
+    <div class="detail-actions">
+      ${!atMax && affordable ? `<button class="btn-primary" onclick="placeSelectedBuilding('${socket.id}')">Place ${b.name}</button>` : ''}
+      ${!atMax && !affordable ? '<button class="btn-disabled" disabled>Not enough resources</button>' : ''}
+    </div>
+  `;
+}
+
+function placeSelectedBuilding(socketId) {
+  if (!selectedBuilding) return;
+  socket.emit("place_building", {
+    socket_id: socketId,
+    building_id: selectedBuilding.id,
+  });
+  selectedBuilding = null;
+  selectedSocket = null;
+  setTimeout(() => {
+    updateContextPanel();
+    updateAsteroid();
+  }, 150);
+}
+
+function renderPlacementHint() {
+  const hint = document.getElementById('placement-hint');
+  if (!hint) return;
+  if (selectedBuilding) {
+    hint.style.display = 'block';
+    hint.textContent = `Tap a glowing socket to place ${BUILDINGS_DEF[selectedBuilding.id]?.name}`;
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+function getIdleRecommendation() {
+  if (!G) return '';
+  const r = G.resources;
+  const bottleneck = getBottleneck();
+
+  if (G.status !== 'playing') return '';
+  if (!G.buildings_placed.drill_rig) {
+    return `<div class="rec-item">
+      <span class="rec-icon">⛏️</span>
+      <div><div class="rec-title">Place a Drill Rig</div>
+      <div class="rec-sub">Produces ore passively. Start here.</div></div>
+    </div>`;
+  }
+  if (r.oxygen < 60 && !G.buildings_placed.oxygen_recycler) {
+    return `<div class="rec-item warning">
+      <span class="rec-icon">🫁</span>
+      <div><div class="rec-title">Oxygen dropping</div>
+      <div class="rec-sub">Build an Oxygen Recycler to reduce drain.</div></div>
+    </div>`;
+  }
+  if (bottleneck === 'power' && !G.buildings_placed.solar_array) {
+    return `<div class="rec-item warning">
+      <span class="rec-icon">⚡</span>
+      <div><div class="rec-title">Power deficit</div>
+      <div class="rec-sub">Build Solar Arrays to power your colony.</div></div>
+    </div>`;
+  }
+  if (bottleneck === 'ore') {
+    return `<div class="rec-item">
+      <span class="rec-icon">⛏️</span>
+      <div><div class="rec-title">Need more ore</div>
+      <div class="rec-sub">Place more Drill Rigs or research extraction techs.</div></div>
+    </div>`;
+  }
+  if (!G.tech_unlocked.length) {
+    return `<div class="rec-item">
+      <span class="rec-icon">🔬</span>
+      <div><div class="rec-title">Open Research</div>
+      <div class="rec-sub">Switch to Research tab to unlock better buildings.</div></div>
+    </div>`;
+  }
+  return `<div class="rec-item">
+    <span class="rec-icon">🚀</span>
+    <div><div class="rec-title">Keep building</div>
+    <div class="rec-sub">Balance resources, research techs, build the rocket.</div></div>
+  </div>`;
+}
+
+function getBottleneck() {
+  if (!G) return null;
+  const r = G.resources;
+  const powerDemand = Object.entries(G.buildings_placed).reduce((sum, [bid, cnt]) => {
+    return sum + (BUILDINGS_DEF[bid]?.effects?.power_per_second || 0) * cnt;
+  }, 0);
+  if (powerDemand > G.rates.power_per_second && powerDemand > 0) return 'power';
+  if (G.buildings_placed.drill_rig && G.rates.ore_per_second < 0.5) return 'ore';
+  return null;
+}
+
+// =============================================================================
+// RENDER FUNCTIONS
 // =============================================================================
 function renderAll() {
   if (!G) return;
   renderHUD();
-  renderBuildings();
-  renderTechs();
-  renderRocket();
-  renderStatus();
 }
 
 function renderHUD() {
   if (!G) return;
   const r = G.resources;
-
-  document.getElementById("ore-val").textContent = fmt(r.ore);
-  document.getElementById("ore-rate").textContent = `+${fmt(G.rates.ore_per_second)}/s`;
-  document.getElementById("power-val").textContent = fmt(r.power);
-  document.getElementById("power-rate").textContent = `+${fmt(G.rates.power_per_second)}/s`;
-  document.getElementById("alloy-val").textContent = fmt(r.alloy);
-  document.getElementById("alloy-rate").textContent = `+${fmt(G.rates.alloy_per_second)}/s`;
-  document.getElementById("crystal-val").textContent = fmt(r.crystal);
-  document.getElementById("crystal-rate").textContent = `+${fmt(G.rates.crystal_per_second)}/s`;
+  const rates = G.rates;
 
   // Oxygen
   const oxy = r.oxygen;
-  const drain = G.rates.oxygen_drain_per_second;
-  document.getElementById("oxy-val").textContent = fmt(oxy);
-  document.getElementById("oxy-drain").textContent = `-${fmt(drain)}/s`;
-  const pct = Math.max(0, Math.min(100, oxy));
-  const bar = document.getElementById("oxy-bar");
-  bar.style.width = pct + "%";
-  bar.className = "oxygen-bar-fill";
-  if (oxy <= 10) bar.classList.add("critical");
-  else if (oxy <= 25) bar.classList.add("danger");
-  else if (oxy <= 50) bar.classList.add("warning");
+  const drain = rates.oxygen_drain_per_second;
+  const oxyVal = document.getElementById('oxy-val');
+  const oxyDrain = document.getElementById('oxy-drain');
+  const oxyBar = document.getElementById('oxy-bar');
+  if (oxyVal) oxyVal.textContent = fmt(oxy);
+  if (oxyDrain) oxyDrain.textContent = `−${fmt(drain)}/s`;
+  if (oxyBar) {
+    const pct = Math.max(0, Math.min(100, oxy));
+    oxyBar.style.width = pct + '%';
+    oxyBar.className = 'o2-bar-fill';
+    if (oxy <= 10) oxyBar.classList.add('critical');
+    else if (oxy <= 25) oxyBar.classList.add('danger');
+    else if (oxy <= 50) oxyBar.classList.add('warning');
+  }
+
+  // Power balance
+  const powerProd = rates.power_per_second;
+  const powerDemand = Object.entries(G.buildings_placed).reduce((sum, [bid, cnt]) => {
+    return sum + (BUILDINGS_DEF[bid]?.effects?.power_per_second || 0) * cnt;
+  }, 0);
+  const powerValEl = document.getElementById('power-val');
+  const powerDemandEl = document.getElementById('power-demand');
+  const powerWarnEl = document.getElementById('power-warn');
+  const powerBlockEl = document.getElementById('power-block');
+  if (powerValEl) powerValEl.textContent = fmt(powerProd);
+  if (powerDemandEl) powerDemandEl.textContent = fmt(powerDemand);
+  if (powerWarnEl && powerBlockEl) {
+    const deficit = powerDemand > powerProd && powerDemand > 0;
+    powerWarnEl.style.display = deficit ? 'inline' : 'none';
+    powerBlockEl.className = deficit ? 'power-block deficit' : 'power-block';
+  }
+
+  // Resources
+  document.getElementById('ore-val').textContent = fmt(r.ore);
+  document.getElementById('ore-rate').textContent = `+${fmt(rates.ore_per_second)}/s`;
+  document.getElementById('alloy-val').textContent = fmt(r.alloy);
+  document.getElementById('alloy-rate').textContent = `+${fmt(rates.alloy_per_second)}/s`;
+  document.getElementById('crystal-val').textContent = fmt(r.crystal);
+  document.getElementById('crystal-rate').textContent = `+${fmt(rates.crystal_per_second)}/s`;
 }
 
 function renderBuildings() {
   if (!G) return;
-  const list = document.getElementById("buildings-list");
+  const list = document.getElementById('buildings-list');
+  if (!list) return;
   const unlocked = G.tech_unlocked || [];
 
   const html = Object.values(BUILDINGS_DEF).map(b => {
-    // Check if unlocked via tech
     const techReq = b.unlock_tech;
     const isUnlocked = !techReq || unlocked.includes(techReq);
     if (!isUnlocked) return "";
 
-    // Check max per run
     const placed = G.buildings_placed[b.id] || 0;
     const atMax = b.max_per_run && placed >= b.max_per_run;
     if (atMax) return "";
 
-    // Check affordability
     const affordable = canAfford(G.resources, b.cost);
-
-    // Category badge
-    const catColor = { extraction: "#f4a460", sustainment: "#00d4ff", industrial: "#9370db", advanced: "#00ced1", escape: "#ff6b35", expansion: "#ffd700" }[b.category] || "#aaa";
+    const catColor = {
+      extraction: "#f97316", sustainment: "#00d4ff", industrial: "#a855f7",
+      advanced: "#00ced1", escape: "#ef4444", expansion: "#ffd700",
+    }[b.category] || "#aaa";
 
     return `
       <div class="build-card ${affordable ? 'affordable' : 'locked'}"
            onclick="${affordable ? `selectBuilding('${b.id}')` : ''}">
         <div class="build-header">
-          <span class="build-name">${b.name}</span>
+          <span class="build-name">${BUILDING_ICONS[b.id] || '🏗️'} ${b.name}</span>
           <span class="build-cat" style="color:${catColor}">${b.category}</span>
         </div>
         <div class="build-desc">${b.description}</div>
@@ -371,11 +644,11 @@ function renderBuildings() {
           ).join(' ')}
         </div>
         <div class="build-effects">
-          ${Object.entries(b.effects).filter(([k]) => k !== 'unlock_sockets' && k !== 'reveal_crystal_nodes' && k !== 'enable_rocket_assembly')
+          ${Object.entries(b.effects).filter(([k]) => !['unlock_sockets','reveal_crystal_nodes','enable_rocket_assembly'].includes(k))
             .map(([k, v]) => `<span class="effect-chip">${formatEffect(k, v)}</span>`).join(' ')}
         </div>
-        ${b.oxygen_upkeep ? `<div class="build-oxy">🫁 +${b.oxygen_upkeep}/s drain</div>` : ''}
-        <div class="build-count">${placed > 0 ? `Placed: ${placed}${b.max_per_run ? '/' + b.max_per_run : ''}` : ''}</div>
+        ${b.oxygen_upkeep ? `<div class="build-oxy">🫁 −${b.oxygen_upkeep}/s O₂</div>` : ''}
+        ${placed > 0 ? `<div class="build-count">Placed: ${placed}${b.max_per_run ? '/'+b.max_per_run : ''}</div>` : ''}
       </div>
     `;
   }).join('');
@@ -387,18 +660,15 @@ function selectBuilding(id) {
   const b = BUILDINGS_DEF[id];
   if (!b) return;
   selectedBuilding = { id, cost: b.cost };
-  document.getElementById("placement-hint").style.display = "block";
-  // Highlight valid sockets
-  G.map.sockets.filter(s => s.unlocked && !s.occupied).forEach(s => {
-    const el = document.getElementById("sock-" + s.id);
-    if (el) el.classList.add("socket-glow");
-  });
+  renderPlacementHint();
+  updateAsteroid(); // show glowing sockets
   showAlert(`Tap a glowing socket to place ${b.name}`, "info");
 }
 
 function renderTechs() {
   if (!G) return;
-  const list = document.getElementById("tech-list");
+  const list = document.getElementById('tech-list');
+  if (!list) return;
   const unlocked = G.tech_unlocked || [];
 
   const branches = ["extraction", "sustainment", "escape"];
@@ -411,7 +681,7 @@ function renderTechs() {
         <div class="tech-branch-label">${branchNames[branch]}</div>
         ${techs.map(t => {
           const isUnlocked = unlocked.includes(t.id);
-          const metPrereqs = t.prerequisites.every(p => unlocked.includes(p));
+          const metPrereqs = (t.prerequisites || []).every(p => unlocked.includes(p));
           const canResearch = !isUnlocked && metPrereqs && canAfford(G.resources, t.cost);
 
           return `
@@ -437,7 +707,8 @@ function renderTechs() {
 
 function renderRocket() {
   if (!G) return;
-  const container = document.getElementById("rocket-parts");
+  const container = document.getElementById('rocket-parts');
+  if (!container) return;
   const assemblyEnabled = G.rocket_assembly_enabled;
 
   const html = Object.entries(ROCKET_PARTS_DEF).map(([id, part]) => {
@@ -471,45 +742,52 @@ function renderRocket() {
 
   // Launch button
   const allComplete = Object.values(G.rocket).every(p => p.complete);
-  const launchArea = document.getElementById("rocket-launch-btn-area");
-  if (allComplete && G.status === "playing") {
-    launchArea.innerHTML = `<button class="btn-launch" onclick="doLaunch()">🚀 LAUNCH NOW</button>`;
-  } else {
-    launchArea.innerHTML = "";
+  const launchArea = document.getElementById('rocket-launch-btn-area');
+  if (launchArea) {
+    if (allComplete && G.status === "playing") {
+      launchArea.innerHTML = `<button class="btn-launch" onclick="doLaunch()">🚀 LAUNCH NOW</button>`;
+    } else {
+      launchArea.innerHTML = "";
+    }
   }
 }
 
-function renderStatus() {
+// =============================================================================
+// OBJECTIVES / BOTTLENECK STRIP
+// =============================================================================
+function updateObjectives() {
   if (!G) return;
-  const content = document.getElementById("status-content");
-  const r = G.resources;
-  const rates = G.rates;
+  const el = document.getElementById('obj-bottleneck');
+  if (!el) return;
 
-  // Bottleneck hint
-  let bottleneck = "None — balanced growth";
-  if (G.buildings_placed.drill_rig && !G.buildings_placed.oxygen_recycler && r.oxygen < 40) {
-    bottleneck = "Oxygen — build life support soon";
-  } else if (G.buildings_placed.refinery && r.alloy < 5 && G.tech_unlocked.includes("launch_assembly")) {
-    bottleneck = "Alloy production — need more Refineries";
+  const bottleneck = getBottleneck();
+  const oxy = G.resources.oxygen;
+
+  if (G.status !== 'playing') {
+    el.innerHTML = '';
+    return;
   }
 
-  const minutes = Math.floor(G.elapsed_seconds / 60);
-  const seconds = Math.floor(G.elapsed_seconds % 60);
-
-  content.innerHTML = `
-    <div class="status-row"><span>Run Time</span><span>${minutes}:${seconds.toString().padStart(2,'0')}</span></div>
-    <div class="status-row"><span>O2 Drain</span><span>-${fmt(rates.oxygen_drain_per_second)}/s</span></div>
-    <div class="status-row"><span>Ore/sec</span><span>+${fmt(rates.ore_per_second)}/s</span></div>
-    <div class="status-row"><span>Power/sec</span><span>+${fmt(rates.power_per_second)}/s</span></div>
-    <div class="status-row"><span>Alloy/sec</span><span>+${fmt(rates.alloy_per_second)}/s</span></div>
-    <div class="status-row"><span>Crystal/sec</span><span>+${fmt(rates.crystal_per_second)}/s</span></div>
-    <div class="status-row"><span>Ore/tap</span><span>${fmt(rates.ore_per_tap)}</span></div>
-    <div class="status-row"><span>Buildings</span><span>${Object.values(G.buildings_placed).reduce((a,b)=>a+b,0)}</span></div>
-    <div class="status-row"><span>Techs</span><span>${G.tech_unlocked.length}</span></div>
-    <div class="status-row"><span>Rocket</span><span>${Object.values(G.rocket).filter(p=>p.complete).length}/4 parts</span></div>
-    <div class="status-divider"></div>
-    <div class="bottleneck">⚠️ ${bottleneck}</div>
-  `;
+  if (oxy <= 25) {
+    el.innerHTML = `<span class="obj-warn">⚠️ OXYGEN CRITICAL — ${fmt(oxy)} remaining</span>`;
+    el.className = 'obj-bottleneck critical';
+  } else if (oxy <= 50) {
+    el.innerHTML = `<span class="obj-warn">🫁 Oxygen low — ${fmt(oxy)}</span>`;
+    el.className = 'obj-bottleneck warning';
+  } else if (bottleneck === 'power') {
+    el.innerHTML = `<span class="obj-warn">⚡ Power deficit — build Solar Arrays</span>`;
+    el.className = 'obj-bottleneck warning';
+  } else if (!G.buildings_placed.drill_rig) {
+    el.innerHTML = `<span class="obj-info">⛏️ Place a Drill Rig to start mining</span>`;
+    el.className = 'obj-bottleneck info';
+  } else if (!G.buildings_placed.oxygen_recycler) {
+    el.innerHTML = `<span class="obj-warn">🫁 Build an Oxygen Recycler to extend your time</span>`;
+    el.className = 'obj-bottleneck warning';
+  } else {
+    const complete = Object.values(G.rocket).filter(p=>p.complete).length;
+    el.innerHTML = `<span class="obj-info">🚀 Rocket: ${complete}/4 parts</span>`;
+    el.className = 'obj-bottleneck info';
+  }
 }
 
 // =============================================================================
@@ -519,16 +797,16 @@ let canvas, ctx;
 let animFrame;
 
 function initCanvas() {
-  canvas = document.getElementById("asteroid-canvas");
-  ctx = canvas.getContext("2d");
+  canvas = document.getElementById('asteroid-canvas');
+  ctx = canvas.getContext('2d');
   resizeCanvas();
-  window.addEventListener("resize", resizeCanvas);
+  window.addEventListener('resize', resizeCanvas);
 }
 
 function resizeCanvas() {
-  const wrapper = document.getElementById("asteroid-wrapper");
+  const wrapper = document.getElementById('asteroid-wrapper');
   if (!canvas || !wrapper) return;
-  const size = Math.min(wrapper.clientWidth, wrapper.clientHeight, 400);
+  const size = Math.min(wrapper.clientWidth, wrapper.clientHeight, 480);
   canvas.width = size;
   canvas.height = size;
 }
@@ -557,7 +835,6 @@ function drawAsteroid() {
   grad.addColorStop(1, "#111827");
 
   ctx.beginPath();
-  // Lumpy asteroid outline
   for (let a = 0; a <= Math.PI * 2; a += 0.1) {
     const bump = 1 + 0.06 * Math.sin(a * 5) + 0.04 * Math.cos(a * 3);
     const r = radius * bump;
@@ -588,24 +865,25 @@ function drawAsteroid() {
     ctx.fill();
   });
 
-  // Highlight
-  const hlGrad = ctx.createRadialGradient(cx - radius*0.4, cy - radius*0.4, 0, cx - radius*0.4, cy - radius*0.4, radius*0.4);
-  hlGrad.addColorStop(0, "rgba(255,255,255,0.08)");
-  hlGrad.addColorStop(1, "rgba(255,255,255,0)");
+  // Rim lighting from space
+  const rimGrad = ctx.createRadialGradient(cx, cy, radius * 0.85, cx, cy, radius * 1.05);
+  rimGrad.addColorStop(0, 'rgba(100,120,160,0)');
+  rimGrad.addColorStop(0.5, 'rgba(100,120,160,0.06)');
+  rimGrad.addColorStop(1, 'rgba(100,120,160,0)');
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI*2);
-  ctx.fillStyle = hlGrad;
+  ctx.fillStyle = rimGrad;
   ctx.fill();
 
   // Nodes (ore / crystal)
   const nodePositions = {
-    "node_left": { angle: Math.PI, dist: 0.82 },
-    "node_top": { angle: -Math.PI/2, dist: 0.82 },
-    "node_right": { angle: 0, dist: 0.82 },
-    "node_far_left": { angle: Math.PI * 0.75, dist: 0.88 },
+    "node_left":    { angle: Math.PI, dist: 0.82 },
+    "node_top":     { angle: -Math.PI/2, dist: 0.82 },
+    "node_right":   { angle: 0, dist: 0.82 },
+    "node_far_left":  { angle: Math.PI * 0.75, dist: 0.88 },
     "node_far_right": { angle: Math.PI * 0.25, dist: 0.88 },
-    "node_far_top": { angle: -Math.PI * 0.8, dist: 0.85 },
-    "node_bottom": { angle: Math.PI/2, dist: 0.88 },
+    "node_far_top":   { angle: -Math.PI * 0.8, dist: 0.85 },
+    "node_bottom":   { angle: Math.PI/2, dist: 0.88 },
   };
 
   G.map.nodes.forEach(node => {
@@ -615,9 +893,19 @@ function drawAsteroid() {
     const nx = cx + Math.cos(pos.angle) * pos.dist * radius;
     const ny = cy + Math.sin(pos.angle) * pos.dist * radius;
     const nodeR = node.type === "ore" ? 12 : 10;
-    const color = node.type === "ore" ? "#f4a460" : "#00ced1";
+    const color = node.type === "ore" ? "#f97316" : "#00d4ff";
 
     if (node.active) {
+      // Outer glow
+      ctx.beginPath();
+      ctx.arc(nx, ny, nodeR + 4, 0, Math.PI*2);
+      const glowGrad = ctx.createRadialGradient(nx, ny, nodeR, nx, ny, nodeR + 4);
+      glowGrad.addColorStop(0, color + '60');
+      glowGrad.addColorStop(1, color + '00');
+      ctx.fillStyle = glowGrad;
+      ctx.fill();
+
+      // Node circle
       ctx.beginPath();
       ctx.arc(nx, ny, nodeR, 0, Math.PI*2);
       ctx.fillStyle = color;
@@ -625,32 +913,41 @@ function drawAsteroid() {
       ctx.strokeStyle = "rgba(255,255,255,0.3)";
       ctx.lineWidth = 2;
       ctx.stroke();
-      // Glow
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.arc(nx, ny, nodeR, 0, Math.PI*2);
-      ctx.fillStyle = "transparent";
-      ctx.fill();
-      ctx.shadowBlur = 0;
+
+      // Store click target
+      if (!document.getElementById("node-" + node.id)) {
+        const el = document.createElement("div");
+        el.id = "node-" + node.id;
+        el.style.cssText = `position:absolute;left:${nx - nodeR}px;top:${ny - nodeR}px;width:${nodeR*2}px;height:${nodeR*2}px;border-radius:50%;cursor:pointer;z-index:5;`;
+        el.onclick = () => { doTap(node.id); };
+        canvas.parentElement.appendChild(el);
+      }
+      const nodeEl = document.getElementById("node-" + node.id);
+      if (nodeEl) {
+        nodeEl.style.left = (nx - nodeR + canvas.offsetLeft) + "px";
+        nodeEl.style.top = (ny - nodeR + canvas.offsetTop) + "px";
+      }
     }
   });
 
   // Sockets
   const socketPositions = {
-    "upper_left":    { angle: Math.PI * 0.8, dist: 0.6 },
-    "upper_right":   { angle: Math.PI * 0.2, dist: 0.6 },
-    "mid_left":      { angle: Math.PI * 0.95, dist: 0.45 },
-    "mid_right":     { angle: Math.PI * 0.05, dist: 0.45 },
-    "lower_left":    { angle: Math.PI * 1.1, dist: 0.6 },
-    "lower_right":   { angle: Math.PI * -0.1, dist: 0.6 },
-    "far_upper_left":   { angle: Math.PI * 0.9, dist: 0.75 },
-    "far_upper_right":   { angle: Math.PI * 0.1, dist: 0.75 },
-    "far_mid_left":     { angle: Math.PI, dist: 0.3 },
-    "far_mid_right":    { angle: 0, dist: 0.3 },
+    "upper_left":       { angle: Math.PI * 0.8,  dist: 0.6 },
+    "upper_right":      { angle: Math.PI * 0.2,  dist: 0.6 },
+    "mid_left":         { angle: Math.PI * 0.95, dist: 0.45 },
+    "mid_right":        { angle: Math.PI * 0.05, dist: 0.45 },
+    "lower_left":       { angle: Math.PI * 1.1,  dist: 0.6 },
+    "lower_right":      { angle: Math.PI * -0.1, dist: 0.6 },
+    "far_upper_left":   { angle: Math.PI * 0.9,  dist: 0.75 },
+    "far_upper_right":  { angle: Math.PI * 0.1,  dist: 0.75 },
+    "far_mid_left":     { angle: Math.PI,         dist: 0.3 },
+    "far_mid_right":    { angle: 0,                dist: 0.3 },
     "far_lower_left":   { angle: Math.PI * 1.15, dist: 0.75 },
-    "far_lower_right":   { angle: Math.PI * -0.15, dist: 0.75 },
+    "far_lower_right":  { angle: Math.PI * -0.15, dist: 0.75 },
   };
+
+  const isSelected = (socket) => selectedSocket && selectedSocket.id === socket.id;
+  const showGlow = (socket) => selectedBuilding && socket.unlocked && !socket.occupied;
 
   G.map.sockets.forEach(socket => {
     const pos = socketPositions[socket.position_key];
@@ -660,58 +957,81 @@ function drawAsteroid() {
     const socketR = 16;
 
     if (socket.occupied) {
-      // Draw placed building icon with category ring
+      // Building — draw with category color ring
       const bId = socket.building_id;
       const b = BUILDINGS_DEF[bId] || {};
-      const cat = b.category || "advanced";
+      const cat = b.category || 'advanced';
       const catColor = {
-        extraction: "#f97316",
-        sustainment: "#00d4ff",
-        industrial: "#a855f7",
-        advanced: "#00ced1",
-        escape: "#ef4444",
-        expansion: "#ffd700",
+        extraction: "#f97316", sustainment: "#00d4ff", industrial: "#a855f7",
+        advanced: "#00ced1", escape: "#ef4444", expansion: "#ffd700",
       }[cat] || "#00d4ff";
 
-      // Outer glow ring
+      // Glow ring
       ctx.beginPath();
       ctx.arc(sx, sy, socketR + 3, 0, Math.PI*2);
       ctx.strokeStyle = catColor;
       ctx.lineWidth = 2;
       ctx.shadowColor = catColor;
-      ctx.shadowBlur = 6;
+      ctx.shadowBlur = isSelected(socket) ? 12 : 6;
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Building icon (larger)
+      // Icon
       const icon = BUILDING_ICONS[bId] || "🏗️";
-      ctx.font = `24px serif`;
+      ctx.font = "24px serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(icon, sx, sy);
-    } else if (socket.unlocked) {
-      // Empty unlocked socket
-      ctx.beginPath();
-      ctx.arc(sx, sy, socketR, 0, Math.PI*2);
-      ctx.strokeStyle = selectedBuilding ? "rgba(0,212,255,0.8)" : "rgba(255,255,255,0.2)";
-      ctx.lineWidth = selectedBuilding ? 3 : 1;
-      ctx.setLineDash([3, 3]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      // Store ref for click
+
+      // Store click target for building selection
       if (!document.getElementById("sock-" + socket.id)) {
         const el = document.createElement("div");
         el.id = "sock-" + socket.id;
-        el.style.cssText = `position:absolute;left:${sx - socketR}px;top:${sy - socketR}px;width:${socketR*2}px;height:${socketR*2}px;border-radius:50%;cursor:pointer;`;
-        el.onclick = () => placeBuilding(socket.id);
+        el.style.cssText = `position:absolute;left:${sx - socketR}px;top:${sy - socketR}px;width:${socketR*2}px;height:${socketR*2}px;border-radius:50%;cursor:pointer;z-index:10;`;
+        el.onclick = (e) => {
+          e.stopPropagation();
+          selectSocket(socket);
+        };
         canvas.parentElement.appendChild(el);
       }
-      // Update position
-      const el = document.getElementById("sock-" + socket.id);
-      if (el) {
-        el.style.left = (sx - socketR + canvas.offsetLeft) + "px";
-        el.style.top = (sy - socketR + canvas.offsetTop) + "px";
-        el.style.display = selectedBuilding ? "block" : "none";
+      const sockEl = document.getElementById("sock-" + socket.id);
+      if (sockEl) {
+        sockEl.style.left = (sx - socketR + canvas.offsetLeft) + "px";
+        sockEl.style.top = (sy - socketR + canvas.offsetTop) + "px";
+      }
+
+    } else if (socket.unlocked) {
+      // Empty unlocked socket
+      const isHighlighted = showGlow(socket);
+      ctx.beginPath();
+      ctx.arc(sx, sy, socketR, 0, Math.PI*2);
+      ctx.strokeStyle = isHighlighted ? "rgba(0,212,255,0.9)" : (isSelected(socket) ? "rgba(0,212,255,0.8)" : "rgba(255,255,255,0.2)");
+      ctx.lineWidth = isHighlighted ? 3 : (isSelected(socket) ? 2.5 : 1.5);
+      ctx.setLineDash(isHighlighted ? [] : [3, 3]);
+      if (isHighlighted) {
+        ctx.shadowColor = "#00d4ff";
+        ctx.shadowBlur = 8;
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.shadowBlur = 0;
+
+      // Store click target
+      if (!document.getElementById("sock-" + socket.id)) {
+        const el = document.createElement("div");
+        el.id = "sock-" + socket.id;
+        el.style.cssText = `position:absolute;left:${sx - socketR}px;top:${sy - socketR}px;width:${socketR*2}px;height:${socketR*2}px;border-radius:50%;cursor:pointer;z-index:10;`;
+        el.onclick = (e) => {
+          e.stopPropagation();
+          selectSocket(socket);
+        };
+        canvas.parentElement.appendChild(el);
+      }
+      const sockEl = document.getElementById("sock-" + socket.id);
+      if (sockEl) {
+        sockEl.style.left = (sx - socketR + canvas.offsetLeft) + "px";
+        sockEl.style.top = (sy - socketR + canvas.offsetTop) + "px";
+        sockEl.style.display = (activeMode === 'build' || isSelected(socket)) ? 'block' : 'none';
       }
     } else {
       // Locked socket
@@ -724,10 +1044,22 @@ function drawAsteroid() {
       ctx.textBaseline = "middle";
       ctx.fillStyle = "rgba(255,255,255,0.25)";
       ctx.fillText("?", sx, sy);
+
+      if (!document.getElementById("sock-" + socket.id)) {
+        const el = document.createElement("div");
+        el.id = "sock-" + socket.id;
+        el.style.cssText = `position:absolute;left:${sx - socketR}px;top:${sy - socketR}px;width:${socketR*2}px;height:${socketR*2}px;border-radius:50%;cursor:default;z-index:5;opacity:0;`;
+        canvas.parentElement.appendChild(el);
+      }
+      const sockEl = document.getElementById("sock-" + socket.id);
+      if (sockEl) {
+        sockEl.style.left = (sx - socketR + canvas.offsetLeft) + "px";
+        sockEl.style.top = (sy - socketR + canvas.offsetTop) + "px";
+      }
     }
   });
 
-  // Rocket pad (bottom)
+  // Rocket pad indicator
   const padX = cx;
   const padY = cy + radius * 0.5;
   const rocketParts = Object.values(G.rocket);
@@ -739,21 +1071,16 @@ function drawAsteroid() {
   ctx.fillStyle = completeParts === 4 ? "#00e676" : (completeParts > 0 ? "#ffd700" : "rgba(255,255,255,0.3)");
   ctx.fillText(`🚀 ${completeParts}/4`, padX, padY);
 
-  // Tap animation
   requestAnimationFrame(drawAsteroid);
 }
 
-// Building icon map
-const BUILDING_ICONS = {
-  drill_rig: "⛏️",
-  hand_drill_bay: "🔧",
-  solar_array: "☀️",
-  oxygen_recycler: "🫁",
-  refinery: "🏭",
-  survey_scanner: "📡",
-  crystal_harvester: "💎",
-  launch_assembly_bay: "🔩",
-};
+function selectSocket(socket) {
+  selectedSocket = { ...socket };
+  if (socket.occupied && socket.building_id) {
+    selectedBuilding = { id: socket.building_id, socket_id: socket.id };
+  }
+  updateContextPanel();
+}
 
 // =============================================================================
 // CANVAS TAP HANDLING
@@ -773,18 +1100,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const cx = W / 2, cy = H / 2, radius = Math.min(W, H) * 0.42;
 
     const socketPositions = {
-      "upper_left":    { angle: Math.PI * 0.8, dist: 0.6 },
-      "upper_right":   { angle: Math.PI * 0.2, dist: 0.6 },
+      "upper_left":    { angle: Math.PI * 0.8,  dist: 0.6 },
+      "upper_right":   { angle: Math.PI * 0.2,  dist: 0.6 },
       "mid_left":      { angle: Math.PI * 0.95, dist: 0.45 },
       "mid_right":     { angle: Math.PI * 0.05, dist: 0.45 },
-      "lower_left":    { angle: Math.PI * 1.1, dist: 0.6 },
+      "lower_left":    { angle: Math.PI * 1.1,  dist: 0.6 },
       "lower_right":   { angle: Math.PI * -0.1, dist: 0.6 },
-      "far_upper_left":   { angle: Math.PI * 0.9, dist: 0.75 },
-      "far_upper_right":  { angle: Math.PI * 0.1, dist: 0.75 },
-      "far_mid_left":     { angle: Math.PI, dist: 0.3 },
-      "far_mid_right":    { angle: 0, dist: 0.3 },
-      "far_lower_left":   { angle: Math.PI * 1.15, dist: 0.75 },
-      "far_lower_right":  { angle: Math.PI * -0.15, dist: 0.75 },
+      "far_upper_left":  { angle: Math.PI * 0.9,  dist: 0.75 },
+      "far_upper_right": { angle: Math.PI * 0.1,  dist: 0.75 },
+      "far_mid_left":    { angle: Math.PI,         dist: 0.3 },
+      "far_mid_right":   { angle: 0,                dist: 0.3 },
+      "far_lower_left":  { angle: Math.PI * 1.15, dist: 0.75 },
+      "far_lower_right": { angle: Math.PI * -0.15, dist: 0.75 },
     };
 
     let nearSocket = null;
@@ -814,67 +1141,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   wrapper.addEventListener("click", e => {
     if (!G || G.status !== "playing") return;
-    const rect = wrapper.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-
-    // Find nearest node and tap it
-    const W = canvas.width, H = canvas.height;
-    const cx = W/2, cy = H/2, radius = Math.min(W,H)*0.42;
-
-    const nodePositions = {
-      "node_left": { angle: Math.PI, dist: 0.82 },
-      "node_top": { angle: -Math.PI/2, dist: 0.82 },
-      "node_right": { angle: 0, dist: 0.82 },
-      "node_far_left": { angle: Math.PI * 0.75, dist: 0.88 },
-      "node_far_right": { angle: Math.PI * 0.25, dist: 0.88 },
-      "node_far_top": { angle: -Math.PI * 0.8, dist: 0.85 },
-      "node_bottom": { angle: Math.PI/2, dist: 0.88 },
-    };
-
-    let closest = null;
-    let minDist = 40; // tap radius
-
-    G.map.nodes.forEach(node => {
-      if (!node.unlocked || !node.active) return;
-      const pos = nodePositions[node.position_key];
-      if (!pos) return;
-      const nx = cx + Math.cos(pos.angle) * pos.dist * radius;
-      const ny = cy + Math.sin(pos.angle) * pos.dist * radius;
-      const d = Math.hypot(x - nx, y - ny);
-      if (d < minDist) {
-        minDist = d;
-        closest = node;
-      }
-    });
-
-    if (closest) {
-      console.log("[TAP] tapped node:", closest.id, "at canvas", x.toFixed(0), y.toFixed(0));
-      doTap(closest.id);
-    } else {
-      console.log("[TAP] miss at canvas", x.toFixed(0), y.toFixed(0), "- nearest node dist:", minDist.toFixed(0), "/ 40 needed");
-    }
+    // Don't handle here — socket divs handle clicks
   });
 });
 
 // =============================================================================
 // UI HELPERS
 // =============================================================================
-function switchTab(tab) {
-  activeTab = tab;
-  document.querySelectorAll(".tab-btn").forEach(b => {
-    b.classList.toggle("active", b.dataset.tab === tab);
-  });
-  document.querySelectorAll(".sidebar-panel").forEach(p => {
-    p.classList.toggle("active", p.id === "tab-" + tab);
-  });
-}
+function switchTab(tab) { setMode(tab); }  // backward compat
 
 function toggleSidebar() {
-  const sb = document.getElementById("sidebar");
-  sb.classList.toggle("open");
+  const sb = document.getElementById('context-panel');
+  if (sb) sb.classList.toggle('open');
 }
 
 function fmt(n) {
@@ -892,7 +1170,7 @@ function formatEffect(key, value) {
     alloy_per_second: `+${value}/s alloy`,
     crystal_per_second: `+${value}/s crystal`,
     ore_per_tap: `+${value} ore/tap`,
-    oxygen_drain_flat: `${value > 0 ? '+' : ''}${value}/s O2 drain`,
+    oxygen_drain_flat: `−${value}/s O₂`,
     unlock_sockets: `+${value} sockets`,
     reveal_crystal_nodes: `+${value} crystal node`,
     enable_rocket_assembly: "Enables rocket build",
@@ -990,14 +1268,11 @@ function hideOverlay() {
   document.getElementById("overlay-victory").style.display = "none";
 }
 
-<!-- =============================================================================
 // =============================================================================
-// DEBUG FUNCTIONS
+// DEBUG
 // =============================================================================
 function debugUpdate() {
   if (!G) return;
-  const panel = document.getElementById('debug-panel');
-  if (!panel) return;
   const el = document.getElementById('debug-state');
   if (!el) return;
   el.innerHTML = `
@@ -1010,14 +1285,7 @@ function debugUpdate() {
 }
 
 function debugTap(nodeId) {
-  console.log('[DEBUG] calling doTap:', nodeId);
   doTap(nodeId);
-  setTimeout(debugUpdate, 300);
-}
-
-function debugResearch() {
-  console.log('[DEBUG] calling doResearch: efficient_strikes_i');
-  doResearch('efficient_strikes_i');
   setTimeout(debugUpdate, 300);
 }
 
@@ -1025,16 +1293,28 @@ function debugResearch() {
 if (window.location.search.includes('debug=1')) {
   const panel = document.getElementById('debug-panel');
   if (panel) panel.style.display = 'block';
-  // Update debug state every second
   setInterval(debugUpdate, 1000);
   debugUpdate();
 }
 
-// DATA DEFINITIONS (injected from Python config via Jinja2)
+// =============================================================================
+// DATA DEFINITIONS
 // =============================================================================
 const BUILDINGS_DEF = {{ buildings_json | safe }};
 const TECHS_DEF = {{ techs_json | safe }};
 const ROCKET_PARTS_DEF = {{ rocket_json | safe }};
+
+// Building icon map
+const BUILDING_ICONS = {
+  drill_rig: "⛏️",
+  hand_drill_bay: "🔧",
+  solar_array: "☀️",
+  oxygen_recycler: "🫁",
+  refinery: "🏭",
+  survey_scanner: "📡",
+  crystal_harvester: "💎",
+  launch_assembly_bay: "🔩",
+};
 
 // =============================================================================
 // INIT
