@@ -250,6 +250,12 @@ socket.on("init", (data) => {
 });
 
 socket.on("state_update", (data) => {
+  // DEBUG: log socket unlocked states
+  if (data.state && data.state.map && data.state.map.sockets) {
+    const locked = data.state.map.sockets.filter(s => !s.unlocked).map(s => s.id);
+    console.log('[state_update] locked sockets:', locked, '| all unlocked:', data.state.map.sockets.map(s => s.id + ':' + s.unlocked));
+  }
+
   const prevStatus = G ? G.status : null;
   const prevOxygen = G ? G.resources.oxygen : 100;
 
@@ -1058,6 +1064,8 @@ function drawAsteroid() {
     const socketR = 16;
 
     if (socket.occupied) {
+      // DEBUG
+      console.log('[updateAsteroid] occupied socket', socket.id, 'unlocked=', socket.unlocked, 'position_key=', socket.position_key);
       const bId = socket.building_id;
       const isSel = isSelected(socket);
       const placed = G ? (G.buildings_placed[bId] || 1) : 1;
@@ -1111,9 +1119,9 @@ function drawAsteroid() {
 
       ctx.beginPath();
       ctx.arc(sx, sy, socketR, 0, Math.PI*2);
-      ctx.strokeStyle = isHighlighted ? "rgba(0,212,255,0.9)" : (isSelected(socket) ? "rgba(0,212,255,0.8)" : "rgba(255,255,255,0.2)");
-      ctx.lineWidth = isHighlighted ? 3 : (isSelected(socket) ? 2.5 : 1.5);
-      ctx.setLineDash(isHighlighted ? [] : [3, 3]);
+      ctx.strokeStyle = isHighlighted ? "rgba(0,212,255,0.9)" : (isSelected(socket) ? "rgba(0,212,255,0.8)" : "rgba(255,255,255,0.6)");
+      ctx.lineWidth = isHighlighted ? 3 : (isSelected(socket) ? 2.5 : 2);
+      ctx.setLineDash(isHighlighted ? [] : [4, 4]);
       if (isHighlighted) {
         ctx.shadowColor = "#00d4ff";
         ctx.shadowBlur = 8;
@@ -1558,7 +1566,7 @@ function drawRocketPad(ctx, cx, cy, radius, completeCount) {
 }
 
 function selectSocket(socket) {
-  console.log('[selectSocket]', socket.id, 'occupied=', socket.occupied, 'selectedBuilding=', selectedBuilding);
+  console.log('[selectSocket]', socket.id, 'unlocked=', socket.unlocked, 'occupied=', socket.occupied, 'position_key=', socket.position_key, 'selectedBuilding=', selectedBuilding ? selectedBuilding.id : null);
   selectedSocket = { ...socket };
   if (socket.occupied && socket.building_id) {
     selectedBuilding = { id: socket.building_id, socket_id: socket.id };
