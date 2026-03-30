@@ -1576,17 +1576,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initCanvas();
 
   const wrapper = document.getElementById("asteroid-wrapper");
-  wrapper.addEventListener("mousemove", e => {
-    if (!G) return;
-    const rect = wrapper.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    const W = canvas.width, H = canvas.height;
-    const cx = W / 2, cy = H / 2, radius = Math.min(W, H) * 0.42;
 
-    const socketPositions = {
+  // Shared position map — used by both mousemove hover and canvas click
+  const socketPositions = {
       "upper_left":    { angle: Math.PI * 0.8,  dist: 0.6 },
       "upper_right":   { angle: Math.PI * 0.2,  dist: 0.6 },
       "mid_left":      { angle: Math.PI * 0.95, dist: 0.45 },
@@ -1600,6 +1592,16 @@ document.addEventListener("DOMContentLoaded", () => {
       "far_lower_left":  { angle: Math.PI * 1.15, dist: 0.75 },
       "far_lower_right": { angle: Math.PI * -0.15, dist: 0.75 },
     };
+
+  wrapper.addEventListener("mousemove", e => {
+    if (!G) return;
+    const rect = wrapper.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2, radius = Math.min(W, H) * 0.42;
 
     let nearSocket = null;
     let nearEmptySocket = null;
