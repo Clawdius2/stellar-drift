@@ -1563,6 +1563,11 @@ function selectSocket(socket) {
   if (socket.occupied && socket.building_id) {
     selectedBuilding = { id: socket.building_id, socket_id: socket.id };
   }
+  // Auto-place if clicking an empty socket with a building already selected
+  if (!socket.occupied && selectedBuilding) {
+    placeSelectedBuilding(socket.id);
+    return;
+  }
   updateContextPanel();
 }
 
