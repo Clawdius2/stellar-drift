@@ -84,11 +84,14 @@ def on_disconnect():
 
 @socketio.on("reconnect")
 def on_reconnect(data):
-    room = data.get("room")
-    if room and room in rooms:
-        join_room(room)
+    # Always restore from DB on reconnect — the rooms dict was wiped if the
+    # server restarted, but PostgreSQL still has our game state.
+    room = data.get("room") or session.get("room")
+    if room:
         session["room"] = room
-        state = rooms[room]
+        join_room(room)
+        state = get_or_create_session(room)  # restores from DB if needed
+        rooms[room] = state
         emit("init", {"room": room, "state": get_client_state(state)})
     else:
         on_connect()
