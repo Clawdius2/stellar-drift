@@ -1145,7 +1145,7 @@ function drawAsteroid() {
       if (sockEl) {
         sockEl.style.left = (sx - socketR + canvas.offsetLeft) + "px";
         sockEl.style.top = (sy - socketR + canvas.offsetTop) + "px";
-        sockEl.style.display = (activeMode === 'build' || isSelected(socket)) ? 'block' : 'none';
+        sockEl.style.display = 'block';
       }
     } else {
       // Locked socket
@@ -1627,7 +1627,13 @@ document.addEventListener("DOMContentLoaded", () => {
       tip.style.display = "block";
       tip.style.left = (e.clientX + 14) + "px";
       tip.style.top = (e.clientY - 10) + "px";
-      tip.textContent = "🔒 Locked — Research Deep Survey to unlock +2 sockets";
+      const surveyScanned = G && G.buildings_placed && G.buildings_placed.survey_scanner;
+      const deepResearched = G && G.tech_unlocked && G.tech_unlocked.includes("deep_survey");
+      if (surveyScanned || deepResearched) {
+        tip.textContent = "🔒 Locked — Build a Survey Scanner to unlock 4 sockets";
+      } else {
+        tip.textContent = "🔒 Locked — Research Deep Survey to unlock 4 sockets";
+      }
     } else {
       tip.style.display = "none";
     }
