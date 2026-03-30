@@ -1,26 +1,32 @@
-"""SQLite persistence for game state — survives Railway redeploys."""
-import sqlite3
+"""PostgreSQL persistence for game state — uses Railway's attached DB (fully persistent)."""
 import json
 import os
 import threading
-from functools import wraps
+import psycopg2
+from psycopg2 import pool
 
-# On Railway: use /tmp which survives container restarts (but not infrastructure restarts).
-# The DATABASE_PATH env var can override this (e.g. to a persistent disk mount).
-DB_PATH = os.environ.get("DATABASE_PATH", "/tmp/stellar_drift.db")
-_db_lock = threading.Lock()
+# Railway provides DATABASE_URL pointing to a persistent PostgreSQL instance.
+# Fall back to localhost for local dev.
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://localhost/stellar_drift")
+_db_pool = None
+_pool_lock = threading.Lock()
 
-def _get_db():
-    """Thread-safe DB connection."""
-    conn = sqlite3.connect(DB_PATH, timeout=10, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+def _get_pool():
+    """Lazy-init thread-safe connection pool."""
+    global _db_pool
+    if _db_pool is None:
+        with _pool_lock:
+            if _db_pool is None:
+                _db_pool = pool.ThreadedConnectionPool(1, 10, DATABASE_URL)
+    return _db_pool
 
 def init_db():
     """Create tables if they don't exist."""
-    conn = _get_db()
+    pool = _get_pool()
+    conn = pool.getconn()
     try:
-        conn.execute("""
+        cur = conn.cursor()
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS game_state (
                 room       TEXT PRIMARY KEY,
                 state_json TEXT NOT NULL,
@@ -28,43 +34,54 @@ def init_db():
             )
         """)
         conn.commit()
+        cur.close()
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 def save_state(room, state):
-    """Atomically save state JSON to DB (upsert). Call after every mutation."""
+    """Atomically upsert state JSON to DB. Call after every mutation."""
     import time
-    conn = _get_db()
+    pool = _get_pool()
+    conn = pool.getconn()
     try:
-        conn.execute(
-            "INSERT OR REPLACE INTO game_state (room, state_json, updated_at) VALUES (?, ?, ?)",
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO game_state (room, state_json, updated_at)
+               VALUES (%s, %s, %s)
+               ON CONFLICT (room) DO UPDATE SET state_json = EXCLUDED.state_json, updated_at = EXCLUDED.updated_at""",
             (room, json.dumps(state), time.time()),
         )
         conn.commit()
+        cur.close()
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 def load_state(room):
     """Load state JSON from DB, or None if not found."""
-    conn = _get_db()
+    pool = _get_pool()
+    conn = pool.getconn()
     try:
-        row = conn.execute(
-            "SELECT state_json FROM game_state WHERE room = ?", (room,)
-        ).fetchone()
+        cur = conn.cursor()
+        cur.execute("SELECT state_json FROM game_state WHERE room = %s", (room,))
+        row = cur.fetchone()
+        cur.close()
         if row:
-            return json.loads(row["state_json"])
+            return json.loads(row[0])
         return None
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 def delete_state(room):
     """Delete a room from DB (on new_run)."""
-    conn = _get_db()
+    pool = _get_pool()
+    conn = pool.getconn()
     try:
-        conn.execute("DELETE FROM game_state WHERE room = ?", (room,))
+        cur = conn.cursor()
+        cur.execute("DELETE FROM game_state WHERE room = %s", (room,))
         conn.commit()
+        cur.close()
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 # Initialize on module load
 init_db()
