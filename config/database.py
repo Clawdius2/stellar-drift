@@ -5,7 +5,9 @@ import os
 import threading
 from functools import wraps
 
-DB_PATH = os.environ.get("DATABASE_PATH", "/var/data/stellar_drift.db")
+# On Railway: use /tmp which survives container restarts (but not infrastructure restarts).
+# The DATABASE_PATH env var can override this (e.g. to a persistent disk mount).
+DB_PATH = os.environ.get("DATABASE_PATH", "/tmp/stellar_drift.db")
 _db_lock = threading.Lock()
 
 def _get_db():
