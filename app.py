@@ -63,10 +63,12 @@ def game():
 @socketio.on("connect")
 def on_connect():
     sid = request.sid
-    room = str(uuid.uuid4())
+    # Restore existing room from DB if it exists, otherwise create new
+    room = session.get("room") or str(uuid.uuid4())
     session["room"] = room
     join_room(room)
-    state = start_new_run(room)
+    # get_or_create_session restores from PostgreSQL if the server restarted
+    state = get_or_create_session(room)
     rooms[room] = state
     emit("init", {"room": room, "state": get_client_state(state)})
     print(f"[connect] sid={sid} room={room}")
