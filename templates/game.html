@@ -250,10 +250,11 @@ socket.on("init", (data) => {
 });
 
 socket.on("state_update", (data) => {
-  // DEBUG: log socket unlocked states
+  // DEBUG: log ALL socket states on every update
   if (data.state && data.state.map && data.state.map.sockets) {
     const locked = data.state.map.sockets.filter(s => !s.unlocked).map(s => s.id);
-    console.log('[state_update] locked sockets:', locked, '| all unlocked:', data.state.map.sockets.map(s => s.id + ':' + s.unlocked));
+    const unlocked = data.state.map.sockets.filter(s => s.unlocked).map(s => s.id + '(' + s.position_key + ')');
+    console.log('[state_update] LOCKED:', locked, '| UNLOCKED:', unlocked);
   }
 
   const prevStatus = G ? G.status : null;
@@ -1063,9 +1064,12 @@ function drawAsteroid() {
     const sy = cy + Math.sin(pos.angle) * pos.dist * radius;
     const socketR = 16;
 
+    const innerRing = ['far_upper_left','far_upper_right','far_mid_left','far_mid_right','far_lower_left','far_lower_right'];
     if (socket.occupied) {
       // DEBUG
-      console.log('[updateAsteroid] occupied socket', socket.id, 'unlocked=', socket.unlocked, 'position_key=', socket.position_key);
+      if (innerRing.includes(socket.position_key)) {
+        console.log('[updateAsteroid] INNER occupied socket', socket.id, socket.position_key, 'unlocked=', socket.unlocked);
+      }
       const bId = socket.building_id;
       const isSel = isSelected(socket);
       const placed = G ? (G.buildings_placed[bId] || 1) : 1;
@@ -1114,6 +1118,9 @@ function drawAsteroid() {
 
     } else if (socket.unlocked) {
       // Empty unlocked socket
+      if (innerRing.includes(socket.position_key)) {
+        console.log('[updateAsteroid] INNER EMPTY unlocked socket', socket.id, socket.position_key);
+      }
       const isHighlighted = showGlow(socket);
       const isHovered = (_hoveredSocket === socket.id) && selectedBuilding;
 
@@ -1566,7 +1573,8 @@ function drawRocketPad(ctx, cx, cy, radius, completeCount) {
 }
 
 function selectSocket(socket) {
-  console.log('[selectSocket]', socket.id, 'unlocked=', socket.unlocked, 'occupied=', socket.occupied, 'position_key=', socket.position_key, 'selectedBuilding=', selectedBuilding ? selectedBuilding.id : null);
+  const innerRing = ['far_upper_left','far_upper_right','far_mid_left','far_mid_right','far_lower_left','far_lower_right'];
+  console.log('[selectSocket]', socket.id, 'pos=', socket.position_key, 'inner=' + innerRing.includes(socket.position_key), 'unlocked=', socket.unlocked, 'occupied=', socket.occupied, 'selectedBuilding=', selectedBuilding ? selectedBuilding.id : null);
   selectedSocket = { ...socket };
   if (socket.occupied && socket.building_id) {
     selectedBuilding = { id: socket.building_id, socket_id: socket.id };
