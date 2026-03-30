@@ -5,7 +5,7 @@ import os
 import threading
 from functools import wraps
 
-DB_PATH = os.environ.get("DATABASE_PATH", "stellar_drift.db")
+DB_PATH = os.environ.get("DATABASE_PATH", "/var/data/stellar_drift.db")
 _db_lock = threading.Lock()
 
 def _get_db():
