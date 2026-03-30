@@ -250,13 +250,6 @@ socket.on("init", (data) => {
 });
 
 socket.on("state_update", (data) => {
-  // DEBUG: log ALL socket states on every update
-  if (data.state && data.state.map && data.state.map.sockets) {
-    const locked = data.state.map.sockets.filter(s => !s.unlocked).map(s => s.id);
-    const unlocked = data.state.map.sockets.filter(s => s.unlocked).map(s => s.id + '(' + s.position_key + ')');
-    console.log('[state_update] LOCKED:', locked, '| UNLOCKED:', unlocked);
-  }
-
   const prevStatus = G ? G.status : null;
   const prevOxygen = G ? G.resources.oxygen : 100;
 
@@ -477,7 +470,6 @@ function showBuildingDetail(socket) {
 }
 
 function placeSelectedBuilding(socketId) {
-  console.log('[placeSelectedBuilding] socketId=', socketId, 'selectedBuilding=', selectedBuilding, 'socket.connected=', socket.connected);
   if (!selectedBuilding) { console.warn('[placeSelectedBuilding] no selectedBuilding!'); return; }
 
   // Use HTTP fallback if socket appears connected but is actually broken
@@ -1064,12 +1056,7 @@ function drawAsteroid() {
     const sy = cy + Math.sin(pos.angle) * pos.dist * radius;
     const socketR = 16;
 
-    const innerRing = ['far_upper_left','far_upper_right','far_mid_left','far_mid_right','far_lower_left','far_lower_right'];
     if (socket.occupied) {
-      // DEBUG
-      if (innerRing.includes(socket.position_key)) {
-        console.log('[updateAsteroid] INNER occupied socket', socket.id, socket.position_key, 'unlocked=', socket.unlocked);
-      }
       const bId = socket.building_id;
       const isSel = isSelected(socket);
       const placed = G ? (G.buildings_placed[bId] || 1) : 1;
@@ -1118,9 +1105,6 @@ function drawAsteroid() {
 
     } else if (socket.unlocked) {
       // Empty unlocked socket
-      if (innerRing.includes(socket.position_key)) {
-        console.log('[updateAsteroid] INNER EMPTY unlocked socket', socket.id, socket.position_key);
-      }
       const isHighlighted = showGlow(socket);
       const isHovered = (_hoveredSocket === socket.id) && selectedBuilding;
 
@@ -1573,8 +1557,6 @@ function drawRocketPad(ctx, cx, cy, radius, completeCount) {
 }
 
 function selectSocket(socket) {
-  const innerRing = ['far_upper_left','far_upper_right','far_mid_left','far_mid_right','far_lower_left','far_lower_right'];
-  console.log('[selectSocket]', socket.id, 'pos=', socket.position_key, 'inner=' + innerRing.includes(socket.position_key), 'unlocked=', socket.unlocked, 'occupied=', socket.occupied, 'selectedBuilding=', selectedBuilding ? selectedBuilding.id : null);
   selectedSocket = { ...socket };
   if (socket.occupied && socket.building_id) {
     selectedBuilding = { id: socket.building_id, socket_id: socket.id };
@@ -1678,7 +1660,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
     if (hitSocket) {
-      console.log('[canvasClick] hit socket', hitSocket.id, 'unlocked=', hitSocket.unlocked, 'occupied=', hitSocket.occupied);
       e.stopPropagation();  // prevent DOM element from also firing
       selectSocket(hitSocket);
     }
