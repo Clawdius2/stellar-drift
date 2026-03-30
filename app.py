@@ -19,6 +19,7 @@ from game.state import (
     get_client_state, can_afford,
 )
 from game.simulation import get_or_create_session, start_new_run, get_session, do_tick
+from config.database import save_state
 
 # =============================================================================
 # APP SETUP
@@ -116,6 +117,7 @@ def on_tap(data):
     _recalculate_rates(state)
     print(f"[tap] gained={gained}, ore now={state['resources']['ore']}")
 
+    save_state(room, state)
     emit("state_update", {
         "state": get_client_state(state),
         "tap_result": {"node_id": node_id, "gained": gained},
@@ -136,6 +138,8 @@ def http_place_building():
 
     state = rooms[room]
     success, msg = place_building(state, socket_id, building_id)
+    if success:
+        save_state(room, state)
     return jsonify({
         "success": success,
         "message": msg,
@@ -158,6 +162,8 @@ def on_place_building(data):
     success, msg = place_building(state, socket_id, building_id)
     print(f"[place_building] success={success}, msg={msg}")
 
+    if success:
+        save_state(room, state)
     emit("state_update", {
         "state": get_client_state(state),
         "action_result": {"action": "place_building", "success": success, "message": msg},
@@ -172,6 +178,8 @@ def on_research(data):
 
     tech_id = data.get("tech_id")
     success, msg = research_tech(state, tech_id)
+    if success:
+        save_state(room, state)
 
     emit("state_update", {
         "state": get_client_state(state),
@@ -187,6 +195,8 @@ def on_build_rocket_part(data):
 
     part_id = data.get("part_id")
     success, msg = build_rocket_part(state, part_id)
+    if success:
+        save_state(room, state)
 
     emit("state_update", {
         "state": get_client_state(state),
@@ -201,6 +211,8 @@ def on_launch(data):
     state = rooms[room]
 
     success, msg = launch_rocket(state)
+    if success:
+        save_state(room, state)
 
     emit("state_update", {
         "state": get_client_state(state),
@@ -221,16 +233,28 @@ def _tick_loop():
         if elapsed >= TICK_SEC:
             # Correct for drift
             last_tick = now - (elapsed - TICK_SEC)
+            global _save_counter
             # Copy keys to avoid dict changed size during iteration
             for room in list(rooms.keys()):
                 state = rooms.get(room)
                 if state and state["status"] == "playing":
                     do_tick(room, TICK_SEC)
                     socketio.emit("state_update", {"state": get_client_state(state)}, room=room)
+            # Periodic persistence — saves all active rooms every _SAVE_INTERVAL ticks
+            _save_counter += 1
+            if _save_counter >= _SAVE_INTERVAL:
+                _save_counter = 0
+                for room, state in list(rooms.items()):
+                    if state and state["status"] == "playing":
+                        save_state(room, state)
         gevent.sleep(0.02)  # sleep 20ms between iterations (50 checks/sec max)
 
 # Start tick greenlet when the module is loaded (works for both `python app.py` and gunicorn)
 _tick_greenlet = gevent.spawn(_tick_loop)
+
+# Periodic save — persist all active rooms every 30 ticks (~30s)
+_save_counter = 0
+_SAVE_INTERVAL = 30
 
 # =============================================================================
 # MAIN  (only used when running directly with `python app.py`)
