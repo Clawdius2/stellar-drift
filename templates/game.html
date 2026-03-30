@@ -1655,10 +1655,34 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Use capturing phase so we intercept BEFORE the socket DOM elements
+  // (DOM element stopsPropagation, so only capturing listeners see it first)
   wrapper.addEventListener("click", e => {
     if (!G || G.status !== "playing") return;
-    // Don't handle here — socket divs handle clicks
-  });
+    const rect = wrapper.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2, radius = Math.min(W, H) * 0.42;
+    const hitRadius = 22;
+    let hitSocket = null;
+    G.map.sockets.forEach(socket => {
+      const pos = socketPositions[socket.position_key];
+      if (!pos) return;
+      const sx = cx + Math.cos(pos.angle) * pos.dist * radius;
+      const sy = cy + Math.sin(pos.angle) * pos.dist * radius;
+      if (Math.hypot(x - sx, y - sy) < hitRadius) {
+        hitSocket = socket;
+      }
+    });
+    if (hitSocket) {
+      console.log('[canvasClick] hit socket', hitSocket.id, 'unlocked=', hitSocket.unlocked, 'occupied=', hitSocket.occupied);
+      e.stopPropagation();  // prevent DOM element from also firing
+      selectSocket(hitSocket);
+    }
+  }, true);  // true = capturing phase
 });
 
 // =============================================================================
