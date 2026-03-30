@@ -62,7 +62,7 @@ BUILDINGS = {
         "category": "expansion",
         "unlock_tech": "deep_survey",
         "cost": {"ore": 35, "power": 3},
-        "effects": {"unlock_sockets": 2, "reveal_crystal_nodes": 1},
+        "effects": {"unlock_sockets": 4, "reveal_crystal_nodes": 1},
         "oxygen_upkeep": 0.005,
         "max_per_run": 1,
     },
