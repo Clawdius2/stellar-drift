@@ -241,6 +241,7 @@ body {
 .power-sep { color: var(--text-dim); }
 .power-demand { color: var(--text-dim); }
 .power-unit { color: var(--text-dim); font-size: 0.6rem; }
+.power-rate { color: var(--text-dim); font-size: 0.6rem; margin-left: 0.2rem; }
 .power-warn {
   color: var(--danger);
   font-size: 0.6rem;

@@ -41,6 +41,7 @@
       <span class="power-sep">/</span>
       <span class="power-demand" id="power-demand">0</span>
       <span class="power-unit">kW</span>
+      <span class="power-rate" id="power-rate"></span>
       <span class="power-warn" id="power-warn" style="display:none">⚠️ DEFICIT</span>
     </div>
   </div>
@@ -620,6 +621,8 @@ function renderHUD() {
   const powerBlockEl = document.getElementById('power-block');
   if (powerValEl) powerValEl.textContent = fmt(powerProd);
   if (powerDemandEl) powerDemandEl.textContent = fmt(powerDemand);
+  const powerRateEl = document.getElementById('power-rate');
+  if (powerRateEl) powerRateEl.textContent = `+${fmt(powerProd)}/s`;
   if (powerWarnEl && powerBlockEl) {
     const deficit = powerDemand > powerProd && powerDemand > 0;
     powerWarnEl.style.display = deficit ? 'inline' : 'none';
