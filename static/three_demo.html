@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stellar Drift — Three.js Proof of Concept</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      overflow: hidden;
+      font-family: 'Orbitron', 'Exo 2', sans-serif;
+    }
+    #asteroid-canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+    #overlay {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 10;
+    }
+    .btn {
+      padding: 10px 20px;
+      border: 1px solid rgba(0, 212, 255, 0.4);
+      background: rgba(0, 20, 40, 0.8);
+      color: #00d4ff;
+      font-family: 'Orbitron', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      border-radius: 4px;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: rgba(0, 212, 255, 0.15);
+      border-color: #00d4ff;
+      box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+    }
+    #info {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      color: rgba(100, 200, 255, 0.7);
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      line-height: 1.6;
+      pointer-events: none;
+    }
+    #info span { color: #00d4ff; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <canvas id="asteroid-canvas"></canvas>
+  <div id="info">
+    STELLAR DRIFT — Three.js POC<br>
+    Click asteroid to mine · Drag to rotate<br>
+    <span>Torch</span> light · <span>Bloom</span> glow · <span>Particles</span> on tap
+  </div>
+  <div id="overlay">
+    <button class="btn" id="btn-tap">⛏ MINE TAP</button>
+    <button class="btn" id="btn-stress">⚠️ STRESS</button>
+    <button class="btn" id="btn-reset">↺ RESET</button>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+    // ─── Scene Setup ────────────────────────────────────────────────────────────
+    const canvas = document.getElementById('asteroid-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050510);
+    scene.fog = new THREE.FogExp2(0x050510, 0.015);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 0, 6);
+    camera.lookAt(0, 0, 0);
+
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.enableZoom = true;
+    controls.minDistance = 3;
+    controls.maxDistance = 12;
+    controls.enablePan = false;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.4;
+
+    // ─── Lighting ───────────────────────────────────────────────────────────────
+    const ambientLight = new THREE.AmbientLight(0x1a1a2e, 0.6);
+    scene.add(ambientLight);
+
+    // Main sun — directional light from upper-left
+    const sunLight = new THREE.DirectionalLight(0xfff4e0, 2.5);
+    sunLight.position.set(-4, 5, 3);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(1024, 1024);
+    sunLight.shadow.camera.near = 0.1;
+    sunLight.shadow.camera.far = 20;
+    sunLight.shadow.camera.left = -5;
+    sunLight.shadow.camera.right = 5;
+    sunLight.shadow.camera.top = 5;
+    sunLight.shadow.camera.bottom = -5;
+    sunLight.shadow.bias = -0.001;
+    scene.add(sunLight);
+
+    // Rim light from behind (space bounce)
+    const rimLight = new THREE.DirectionalLight(0x4060ff, 0.4);
+    rimLight.position.set(2, -2, -4);
+    scene.add(rimLight);
+
+    // Subtle fill from below
+    const fillLight = new THREE.PointLight(0xff6020, 0.3, 10);
+    fillLight.position.set(0, -4, 2);
+    scene.add(fillLight);
+
+    // ─── Asteroid Mesh ──────────────────────────────────────────────────────────
+    function createAsteroid() {
+      // Icosahedron base with noise-based vertex displacement
+      const geometry = new THREE.IcosahedronGeometry(1.8, 5);
+      const positions = geometry.attributes.position;
+
+      // Simple deterministic noise for craters / surface variation
+      const noise = (x, y, z) => {
+        return Math.sin(x * 3.1 + 1.2) * Math.cos(y * 2.7 - 0.5) * Math.sin(z * 3.5 + 2.1) * 0.12
+             + Math.sin(x * 7.3 - 2.0) * Math.cos(y * 6.1 + 1.3) * 0.05
+             + Math.sin(x * 14.0 + y * 11.0 + z * 9.0) * 0.025;
+      };
+
+      for (let i = 0; i < positions.count; i++) {
+        const x = positions.getX(i);
+        const y = positions.getY(i);
+        const z = positions.getZ(i);
+        const len = Math.sqrt(x * x + y * y + z * z);
+        const disp = noise(x, y, z);
+
+        // Crater-like deep spots
+        const craterDot1 = Math.max(0, (Math.sin(x * 4 + z * 3) * Math.cos(y * 5 - x * 2) - 0.7) * 0.15);
+        const craterDot2 = Math.max(0, (Math.sin(z * 5 - y * 4) * Math.cos(x * 6 + y * 3) - 0.72) * 0.12);
+
+        const newLen = len + disp - craterDot1 - craterDot2;
+        positions.setXYZ(i, x / len * newLen, y / len * newLen, z / len * newLen);
+      }
+      geometry.computeVertexNormals();
+
+      // Procedural rock material
+      const material = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0x4a5568),
+        roughness: 0.92,
+        metalness: 0.08,
+        envMapIntensity: 0.2,
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      return mesh;
+    }
+
+    const asteroid = createAsteroid();
+    scene.add(asteroid);
+
+    // ─── Socket Indicators (3D rings) ──────────────────────────────────────────
+    // Match the game socket positions
+    const SOCKET_ANGLES = [
+      { angle: Math.PI * 0.8,  dist: 0.6, label: 'upper_left'    },
+      { angle: Math.PI * 0.2,  dist: 0.6, label: 'upper_right'   },
+      { angle: Math.PI * 0.95, dist: 0.45, label: 'mid_left'      },
+      { angle: Math.PI * 0.05, dist: 0.45, label: 'mid_right'    },
+      { angle: Math.PI * 1.1,  dist: 0.6, label: 'lower_left'    },
+      { angle: Math.PI * -0.1, dist: 0.6, label: 'lower_right'    },
+      { angle: Math.PI * 0.9,  dist: 0.75, label: 'far_upper_left'  },
+      { angle: Math.PI * 0.1,  dist: 0.75, label: 'far_upper_right' },
+      { angle: Math.PI,        dist: 0.3, label: 'far_mid_left'     },
+      { angle: 0,              dist: 0.3, label: 'far_mid_right'    },
+      { angle: Math.PI * 1.15, dist: 0.75, label: 'far_lower_left'  },
+      { angle: Math.PI * -0.15, dist: 0.75, label: 'far_lower_right' },
+    ];
+
+    const ASTEROID_RADIUS = 1.8;
+    const sockets = [];
+    const socketStates = {}; // label -> 'empty' | 'occupied' | 'locked'
+
+    // Initially show first 6 as empty, rest locked
+    SOCKET_ANGLES.forEach((s, i) => {
+      socketStates[s.label] = i < 6 ? 'empty' : 'locked';
+    });
+
+    function buildSocketMesh(posAngle, posDist, state) {
+      const group = new THREE.Group();
+
+      const x = Math.cos(posAngle) * posDist * ASTEROID_RADIUS;
+      const y = Math.sin(posAngle) * posDist * ASTEROID_RADIUS;
+      const z = Math.sqrt(Math.max(0, ASTEROID_RADIUS * ASTEROID_RADIUS - x * x - y * y)) * 0.85;
+
+      group.position.set(x, y, z);
+      group.lookAt(0, 0, 0);
+
+      let color, emissive, ringOpacity;
+      if (state === 'empty') {
+        color = 0x00d4ff; emissive = 0x004466; ringOpacity = 0.6;
+      } else if (state === 'occupied') {
+        color = 0x00ff88; emissive = 0x003322; ringOpacity = 0.9;
+      } else {
+        color = 0x555555; emissive = 0x111111; ringOpacity = 0.25;
+      }
+
+      // Outer glow ring
+      const torusGeo = new THREE.TorusGeometry(0.18, 0.025, 8, 32);
+      const torusMat = new THREE.MeshStandardMaterial({
+        color,
+        emissive,
+        emissiveIntensity: state === 'occupied' ? 1.2 : 0.6,
+        transparent: true,
+        opacity: ringOpacity,
+        roughness: 0.3,
+        metalness: 0.7,
+      });
+      const ring = new THREE.Mesh(torusGeo, torusMat);
+      ring.rotation.x = Math.PI / 2;
+      group.add(ring);
+
+      // Inner dot
+      const dotGeo = new THREE.CircleGeometry(0.07, 16);
+      const dotMat = new THREE.MeshStandardMaterial({
+        color,
+        emissive,
+        emissiveIntensity: state === 'empty' ? 2.0 : 1.0,
+        roughness: 0.2,
+        metalness: 0.5,
+      });
+      const dot = new THREE.Mesh(dotGeo, dotMat);
+      dot.position.z = 0.01;
+      group.add(dot);
+
+      group.userData = { label: SOCKET_ANGLES[sockets.length]?.label, state, ring, dot, torusMat, dotMat };
+      return group;
+    }
+
+    function rebuildSockets() {
+      sockets.forEach(s => scene.remove(s));
+      sockets.length = 0;
+      SOCKET_ANGLES.forEach(sa => {
+        const mesh = buildSocketMesh(sa.angle, sa.dist, socketStates[sa.label]);
+        scene.add(mesh);
+        sockets.push(mesh);
+      });
+    }
+
+    rebuildSockets();
+
+    // ─── Building: Drill Rig (3D) ───────────────────────────────────────────────
+    function createDrillRig() {
+      const group = new THREE.Group();
+      const color = 0xd97706, accent = 0xfbbf24;
+
+      const mat = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.5 });
+      const metalMat = () => new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.7, metalness: 0.6 });
+
+      // Base
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.4), metalMat());
+      base.position.y = 0.05;
+      base.castShadow = true;
+      group.add(base);
+
+      // Mast
+      const mast = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.12), metalMat());
+      mast.position.y = 0.35;
+      mast.castShadow = true;
+      group.add(mast);
+
+      // Cross braces
+      [-0.1, 0.1].forEach(offset => {
+        const brace = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 0.04), mat(color));
+        brace.position.set(0, 0.2 + offset * 2, 0);
+        brace.rotation.z = offset * 1.5;
+        group.add(brace);
+      });
+
+      // Drill cone
+      const drillGeo = new THREE.ConeGeometry(0.09, 0.25, 8);
+      const drill = new THREE.Mesh(drillGeo, mat(accent));
+      drill.position.y = -0.12;
+      drill.rotation.x = Math.PI;
+      drill.castShadow = true;
+      group.add(drill);
+      group.userData.drill = drill;
+
+      // Glow ring at base
+      const glowGeo = new THREE.TorusGeometry(0.22, 0.015, 8, 32);
+      const glowMat = new THREE.MeshStandardMaterial({
+        color: 0xd97706, emissive: 0xd97706, emissiveIntensity: 1.5,
+        transparent: true, opacity: 0.7
+      });
+      const glowRing = new THREE.Mesh(glowGeo, glowMat);
+      glowRing.rotation.x = Math.PI / 2;
+      glowRing.position.y = 0.06;
+      group.add(glowRing);
+      group.userData.glowRing = glowRing;
+
+      return group;
+    }
+
+    // ─── Building: Solar Array (3D) ────────────────────────────────────────────
+    function createSolarArray() {
+      const group = new THREE.Group();
+
+      const panelMat = new THREE.MeshStandardMaterial({
+        color: 0x1e3a5f, roughness: 0.3, metalness: 0.8,
+        emissive: 0x0033aa, emissiveIntensity: 0.3,
+      });
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.5, metalness: 0.7 });
+
+      // Panel body
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.02, 0.35), panelMat);
+      panel.rotation.z = -0.15;
+      panel.castShadow = true;
+      group.add(panel);
+
+      // Grid lines on panel (thin boxes)
+      const gridMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, emissive: 0x3b82f6, emissiveIntensity: 0.8 });
+      [-0.2, 0, 0.2].forEach(xOff => {
+        const line = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.025, 0.32), gridMat);
+        line.position.set(xOff, 0.015, 0);
+        line.rotation.z = -0.15;
+        group.add(line);
+      });
+
+      // Stand
+      const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.3, 6), frameMat);
+      stand.position.set(0, -0.15, 0.05);
+      group.add(stand);
+
+      // Base plate
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.03, 0.15), frameMat);
+      base.position.set(0, -0.3, 0.05);
+      group.add(base);
+
+      // Glint light
+      const glintLight = new THREE.PointLight(0x60a5fa, 0.5, 0.8);
+      glintLight.position.set(0.2, 0.1, 0.2);
+      group.add(glintLight);
+      group.userData.glintLight = glintLight;
+
+      return group;
+    }
+
+    // ─── Place a drill at socket 0, solar at socket 1 ─────────────────────────
+    let placedBuildings = [];
+    function placeDrillAt(socketIdx) {
+      const sa = SOCKET_ANGLES[socketIdx];
+      const x = Math.cos(sa.angle) * sa.dist * ASTEROID_RADIUS;
+      const y = Math.sin(sa.angle) * sa.dist * ASTEROID_RADIUS;
+      const z = Math.sqrt(Math.max(0, ASTEROID_RADIUS * ASTEROID_RADIUS - x * x - y * y)) * 0.85;
+
+      const drill = createDrillRig();
+      drill.position.set(x, y, z);
+      const dir = new THREE.Vector3(-x, -y, -z).normalize();
+      drill.lookAt(new THREE.Vector3(x, y, z).add(dir));
+      drill.scale.setScalar(0.45);
+      scene.add(drill);
+      placedBuildings.push(drill);
+
+      // Update socket visual
+      socketStates[sa.label] = 'occupied';
+      rebuildSockets();
+    }
+
+    function placeSolarAt(socketIdx) {
+      const sa = SOCKET_ANGLES[socketIdx];
+      const x = Math.cos(sa.angle) * sa.dist * ASTEROID_RADIUS;
+      const y = Math.sin(sa.angle) * sa.dist * ASTEROID_RADIUS;
+      const z = Math.sqrt(Math.max(0, ASTEROID_RADIUS * ASTEROID_RADIUS - x * x - y * y)) * 0.85;
+
+      const solar = createSolarArray();
+      solar.position.set(x, y, z);
+      const dir = new THREE.Vector3(-x, -y, -z).normalize();
+      solar.lookAt(new THREE.Vector3(x, y, z).add(dir));
+      solar.scale.setScalar(0.5);
+      scene.add(solar);
+      placedBuildings.push(solar);
+
+      socketStates[sa.label] = 'occupied';
+      rebuildSockets();
+    }
+
+    placeDrillAt(0);
+    placeSolarAt(1);
+    // Unlock and fill a few more sockets
+    ['far_upper_left', 'mid_left', 'upper_right', 'far_lower_right'].forEach((lbl, i) => {
+      socketStates[lbl] = 'empty';
+    });
+    rebuildSockets();
+
+    // ─── Ore Nodes (3D) ────────────────────────────────────────────────────────
+    const NODE_POSITIONS = [
+      { angle: Math.PI,        dist: 0.88, type: 'ore'    },
+      { angle: -Math.PI / 2,   dist: 0.88, type: 'ore'    },
+      { angle: 0,              dist: 0.88, type: 'ore'    },
+      { angle: Math.PI * 0.75, dist: 0.92, type: 'crystal'},
+      { angle: Math.PI * 0.25, dist: 0.92, type: 'crystal'},
+    ];
+
+    const oreNodes = [];
+    function createOreNode(type) {
+      const group = new THREE.Group();
+      const color = type === 'ore' ? 0xf97316 : 0x00d4ff;
+      const emissive = type === 'ore' ? 0xff4400 : 0x0088ff;
+
+      const mat = () => new THREE.MeshStandardMaterial({
+        color, emissive, emissiveIntensity: 1.5,
+        roughness: 0.3, metalness: 0.6,
+      });
+
+      // Core crystal/ore chunk
+      const core = new THREE.Mesh(
+        type === 'crystal'
+          ? new THREE.OctahedronGeometry(0.12, 0)
+          : new THREE.DodecahedronGeometry(0.1, 0),
+        mat()
+      );
+      core.castShadow = true;
+      group.add(core);
+
+      // Glow sphere
+      const glowMat = new THREE.MeshStandardMaterial({
+        color, emissive, emissiveIntensity: 0.5,
+        transparent: true, opacity: 0.2,
+      });
+      const glow = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), glowMat);
+      group.add(glow);
+
+      // Point light
+      const light = new THREE.PointLight(color, 0.6, 1.2);
+      group.add(light);
+
+      group.userData = { type, core, glow };
+      return group;
+    }
+
+    NODE_POSITIONS.forEach(n => {
+      const x = Math.cos(n.angle) * n.dist * ASTEROID_RADIUS;
+      const y = Math.sin(n.angle) * n.dist * ASTEROID_RADIUS;
+      const z = Math.sqrt(Math.max(0, ASTEROID_RADIUS * ASTEROID_RADIUS - x * x - y * y)) * 0.85;
+
+      const node = createOreNode(n.type);
+      node.position.set(x, y, z);
+      const dir = new THREE.Vector3(-x, -y, -z).normalize();
+      node.lookAt(new THREE.Vector3(x, y, z).add(dir));
+      scene.add(node);
+      oreNodes.push(node);
+    });
+
+    // ─── Particle System (mining sparks) ───────────────────────────────────────
+    const PARTICLE_COUNT = 200;
+    const particleGeometry = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+    const particleVelocities = [];
+    const particleLifetimes = new Float32Array(PARTICLE_COUNT);
+    let particleTexture;
+
+    // Create a simple circle texture for particles
+    const particleCanvas = document.createElement('canvas');
+    particleCanvas.width = 32;
+    particleCanvas.height = 32;
+    const pCtx = particleCanvas.getContext('2d');
+    const grad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.4, 'rgba(255,200,100,0.8)');
+    grad.addColorStop(1, 'rgba(255,100,0,0)');
+    pCtx.fillStyle = grad;
+    pCtx.fillRect(0, 0, 32, 32);
+    const pTexCanvas = document.createElement('canvas');
+    pTexCanvas.width = 32; pTexCanvas.height = 32;
+    const pTexCtx = pTexCanvas.getContext('2d');
+    pTexCtx.drawImage(particleCanvas, 0, 0);
+    particleTexture = new THREE.CanvasTexture(pTexCanvas);
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particlePositions[i * 3] = 0;
+      particlePositions[i * 3 + 1] = -999; // hide off-screen
+      particlePositions[i * 3 + 2] = 0;
+      particleVelocities.push(new THREE.Vector3());
+      particleLifetimes[i] = 0;
+    }
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+
+    const particleMaterial = new THREE.PointsMaterial({
+      size: 0.08,
+      map: particleTexture,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      vertexColors: false,
+      color: 0xffa040,
+    });
+
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    scene.add(particles);
+
+    let nextDeadParticle = 0;
+
+    function spawnParticles(position, count = 20) {
+      const posAttr = particleGeometry.attributes.position;
+      for (let i = 0; i < count; i++) {
+        const idx = nextDeadParticle;
+        nextDeadParticle = (nextDeadParticle + 1) % PARTICLE_COUNT;
+
+        posAttr.setXYZ(
+          idx,
+          position.x + (Math.random() - 0.5) * 0.1,
+          position.y + (Math.random() - 0.5) * 0.1,
+          position.z + (Math.random() - 0.5) * 0.1
+        );
+
+        const vel = particleVelocities[idx];
+        vel.set(
+          (Math.random() - 0.5) * 0.8,
+          (Math.random() - 0.5) * 0.8,
+          (Math.random() - 0.5) * 0.8
+        );
+        particleLifetimes[idx] = 1.0;
+      }
+      posAttr.needsUpdate = true;
+    }
+
+    function updateParticles(delta) {
+      const posAttr = particleGeometry.attributes.position;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        if (particleLifetimes[i] > 0) {
+          particleLifetimes[i] -= delta * 1.5;
+          const vel = particleVelocities[i];
+          const x = posAttr.getX(i) + vel.x * delta;
+          const y = posAttr.getY(i) + vel.y * delta;
+          const z = posAttr.getZ(i) + vel.z * delta;
+          posAttr.setXYZ(i, x, y, z);
+          vel.multiplyScalar(0.96);
+          if (particleLifetimes[i] <= 0) {
+            posAttr.setY(i, -999);
+          }
+        }
+      }
+      posAttr.needsUpdate = true;
+    }
+
+    // ─── Post-Processing (Bloom) ────────────────────────────────────────────────
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.8,   // strength
+      0.4,   // radius
+      0.2    // threshold — only bright things bloom
+    );
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+
+    // ─── Star Field ────────────────────────────────────────────────────────────
+    const starGeo = new THREE.BufferGeometry();
+    const starCount = 3000;
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 80 + Math.random() * 20;
+      starPos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+      starPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      starPos[i * 3 + 2] = r * Math.cos(phi);
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, sizeAttenuation: true });
+    const stars = new THREE.Points(starGeo, starMat);
+    scene.add(stars);
+
+    // ─── Raycasting for Clicks ─────────────────────────────────────────────────
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    function onCanvasClick(event) {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      // Check ore nodes first
+      const nodeHits = raycaster.intersectObjects(oreNodes.map(n => n.children[0]), false);
+      if (nodeHits.length > 0) {
+        const worldPos = new THREE.Vector3();
+        nodeHits[0].object.getWorldPosition(worldPos);
+        spawnParticles(worldPos, 30);
+        return;
+      }
+
+      // Check asteroid surface
+      const asteroidHits = raycaster.intersectObject(asteroid, false);
+      if (asteroidHits.length > 0) {
+        spawnParticles(asteroidHits[0].point, 15);
+      }
+    }
+
+    canvas.addEventListener('click', onCanvasClick);
+
+    // ─── UI Controls ───────────────────────────────────────────────────────────
+    let stressMode = false;
+
+    document.getElementById('btn-tap').addEventListener('click', () => {
+      // Simulate a tap at a random ore node
+      const activeNodes = oreNodes.filter(n => n.userData.type === 'ore');
+      if (activeNodes.length > 0) {
+        const node = activeNodes[Math.floor(Math.random() * activeNodes.length)];
+        const worldPos = new THREE.Vector3();
+        node.children[0].getWorldPosition(worldPos);
+        spawnParticles(worldPos, 40);
+      }
+    });
+
+    document.getElementById('btn-stress').addEventListener('click', () => {
+      stressMode = !stressMode;
+      if (stressMode) {
+        sunLight.color.set(0xff4040);
+        sunLight.intensity = 1.5;
+        ambientLight.color.set(0x2a1010);
+        ambientLight.intensity = 0.8;
+        bloomPass.strength = 1.4;
+      } else {
+        sunLight.color.set(0xfff4e0);
+        sunLight.intensity = 2.5;
+        ambientLight.color.set(0x1a1a2e);
+        ambientLight.intensity = 0.6;
+        bloomPass.strength = 0.8;
+      }
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      stressMode = false;
+      sunLight.color.set(0xfff4e0);
+      sunLight.intensity = 2.5;
+      ambientLight.color.set(0x1a1a2e);
+      ambientLight.intensity = 0.6;
+      bloomPass.strength = 0.8;
+      // Reset asteroid color
+      asteroid.material.color.set(0x4a5568);
+    });
+
+    // ─── Animation Loop ────────────────────────────────────────────────────────
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = Math.min(clock.getDelta(), 0.05);
+      const elapsed = clock.getElapsedTime();
+
+      controls.update();
+
+      // Animate asteroid slow rotation (subtle)
+      asteroid.rotation.y += delta * 0.03;
+
+      // Animate ore nodes — shimmer and float
+      oreNodes.forEach((node, i) => {
+        const t = elapsed + i * 1.3;
+        node.children[0].rotation.y = t * 0.8;
+        node.children[0].rotation.x = Math.sin(t * 0.5) * 0.2;
+        const pulse = 0.8 + Math.sin(t * 2.0 + i) * 0.2;
+        node.children[1].material.opacity = 0.15 + pulse * 0.1;
+        node.children[2].intensity = 0.4 + pulse * 0.3;
+      });
+
+      // Animate placed buildings
+      placedBuildings.forEach((b, i) => {
+        if (b.userData.drill) {
+          const drill = b.userData.drill;
+          drill.rotation.y = elapsed * 3;
+        }
+        if (b.userData.glowRing) {
+          b.userData.glowRing.material.emissiveIntensity = 1.0 + Math.sin(elapsed * 2.5 + i) * 0.5;
+        }
+        if (b.userData.glintLight) {
+          b.userData.glintLight.intensity = 0.3 + Math.sin(elapsed * 1.2 + i * 0.7) * 0.2;
+        }
+      });
+
+      // Animate socket rings
+      sockets.forEach((s, i) => {
+        const ring = s.userData.ring;
+        const mat = s.userData.torusMat;
+        if (mat && s.userData.state === 'empty') {
+          mat.emissiveIntensity = 0.4 + Math.sin(elapsed * 2 + i * 0.5) * 0.3;
+        }
+        ring.rotation.z = elapsed * 0.3;
+      });
+
+      // Stress mode effects
+      if (stressMode) {
+        const stress = (Math.sin(elapsed * 4) * 0.5 + 0.5) * 0.3;
+        asteroid.material.color.setRGB(
+          0.29 + stress * 0.3,
+          0.33 - stress * 0.1,
+          0.40 - stress * 0.2
+        );
+        asteroid.material.emissive = new THREE.Color(0x330000);
+        asteroid.material.emissiveIntensity = stress * 0.3;
+      } else {
+        asteroid.material.emissiveIntensity = 0;
+      }
+
+      updateParticles(delta);
+
+      // Subtle star twinkle
+      stars.rotation.y += delta * 0.001;
+
+      composer.render();
+    }
+
+    animate();
+
+    // ─── Resize ────────────────────────────────────────────────────────────────
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
